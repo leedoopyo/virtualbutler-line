@@ -7,7 +7,7 @@ import { normalizeLanguageChoice, languageSelectionMessage, welcomeMessage } fro
 import { isEmergency, emergencyReply } from './src/emergency.js';
 import { generateReply } from './src/ai.js';
 import { analyzeImage } from './src/vision.js';
-import { isLocationRequest, requestLocationMessage, locationReceivedMessage, detectSearchType } from './src/location.js';
+import { isLocationRequest, locationReceivedMessage, detectSearchType } from './src/location.js';
 import { searchNearby, searchByKeyword } from './src/places.js';
 
 dotenv.config();
@@ -95,17 +95,30 @@ app.post('/webhook', async (req, res) => {
           continue;
         }
         try {
-          const result = await analyzeImage(event.message.id, lang);
-          setState(userId, 'awaiting_location_restaurant');
+          const { text: analysisText, location: detectedLocation } = await analyzeImage(event.message.id, lang);
 
-          const followUp = {
-            en: '📍 Want to find nearby places?\nType area name + what you need!\n(e.g. "Yongsan hotel" / "Hongdae restaurant")',
-            vi: '📍 Muốn tìm nơi gần đây?\nNhập tên khu vực + nhu cầu!\n(vd: "Yongsan hotel" / "Hongdae nhà hàng")',
-            id: '📍 Ingin mencari tempat terdekat?\nKetik nama area + kebutuhan!\n(cth: "Yongsan hotel" / "Hongdae restoran")',
-            mn: '📍 Ойролцоох газар хайх уу?\nГазрын нэр + хэрэгцээгээ бичнэ үү!\n(жш: "Yongsan hotel" / "Hongdae ресторан")',
-          };
+          // 감지된 위치를 세션에 저장
+          if (detectedLocation && detectedLocation.toLowerCase() !== 'unknown') {
+            setState(userId, 'has_location:' + detectedLocation);
+          } else {
+            setState(userId, 'awaiting_location_restaurant');
+          }
 
-          await replyMessage(event.replyToken, result, followUp[lang] || followUp.en);
+          const followUp = detectedLocation && detectedLocation.toLowerCase() !== 'unknown'
+            ? {
+                en: `📍 I can see you're near "${detectedLocation}"!\nWhat do you need?\n(e.g. "hotel" / "restaurant" / "pharmacy")`,
+                vi: `📍 Tôi thấy bạn đang ở gần "${detectedLocation}"!\nBạn cần gì?\n(vd: "hotel" / "nhà hàng" / "nhà thuốc")`,
+                id: `📍 Saya lihat Anda dekat "${detectedLocation}"!\nAnda butuh apa?\n(cth: "hotel" / "restoran" / "apotek")`,
+                mn: `📍 Та "${detectedLocation}" орчимд байна!\nЮу хэрэгтэй вэ?\n(жш: "hotel" / "ресторан" / "эмийн сан")`,
+              }
+            : {
+                en: `📍 Want to find nearby places?\nType area name + what you need!\n(e.g. "Gangnam hotel" / "Hongdae restaurant")`,
+                vi: `📍 Muốn tìm nơi gần đây?\nNhập tên khu vực + nhu cầu!\n(vd: "Gangnam hotel" / "Hongdae nhà hàng")`,
+                id: `📍 Ingin mencari tempat terdekat?\nKetik nama area + kebutuhan!\n(cth: "Gangnam hotel" / "Hongdae restoran")`,
+                mn: `📍 Ойролцоох газар хайх уу?\nГазрын нэр + хэрэгцээгээ бичнэ үү!\n(жш: "Gangnam hotel" / "Hongdae ресторан")`,
+              };
+
+          await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
 
         } catch (err) {
           console.error('Image analysis failed:', err.message);
@@ -147,8 +160,50 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 4. 위치 대기 상태 처리
+      // 4. 위치 감지된 상태 + nearby 요청
       const currentState = getState(userId);
+
+      if (currentState && currentState.startsWith('has_location:')) {
+        const detectedLocation = currentState.replace('has_location:', '');
+
+        if (isLocationRequest(userText)) {
+          const searchType = detectSearchType(userText);
+          setState(userId, null);
+
+          try {
+            const results = await searchByKeyword(detectedLocation, searchType);
+
+            const typeLabel = {
+              restaurant: { en: '🍜 Restaurants', vi: '🍜 Nhà hàng', id: '🍜 Restoran', mn: '🍜 Ресторан' },
+              cafe: { en: '☕ Cafes', vi: '☕ Quán cà phê', id: '☕ Kafe', mn: '☕ Кафе' },
+              hotel: { en: '🏨 Hotels', vi: '🏨 Khách sạn', id: '🏨 Hotel', mn: '🏨 Зочид буудал' },
+              pharmacy: { en: '💊 Pharmacies', vi: '💊 Nhà thuốc', id: '💊 Apotek', mn: '💊 Эмийн сан' },
+              hospital: { en: '🏥 Clinics', vi: '🏥 Phòng khám', id: '🏥 Klinik', mn: '🏥 Эмнэлэг' },
+              halal: { en: '🕌 Halal food', vi: '🕌 Đồ ăn halal', id: '🕌 Makanan halal', mn: '🕌 Халал хоол' },
+            };
+
+            const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
+
+            if (results) {
+              await replyMessage(event.replyToken, `${label} near ${detectedLocation}:\n\n${results}`);
+            } else {
+              const notFound = {
+                en: `😅 No results near "${detectedLocation}". Try typing the area name manually!`,
+                vi: `😅 Không tìm thấy gần "${detectedLocation}". Thử nhập tên khu vực thủ công!`,
+                id: `😅 Tidak ada hasil dekat "${detectedLocation}". Coba ketik nama area secara manual!`,
+                mn: `😅 "${detectedLocation}" орчимд үр дүн олдсонгүй. Газрын нэрийг гараар оруулна уу!`,
+              };
+              await replyMessage(event.replyToken, notFound[lang] || notFound.en);
+            }
+          } catch (err) {
+            console.error('Search failed:', err.message);
+            await replyMessage(event.replyToken, await generateReply(userText, lang));
+          }
+          continue;
+        }
+      }
+
+      // 5. 위치 대기 상태 처리
       if (currentState && currentState.startsWith('awaiting_location')) {
         const searchType = detectSearchType(userText);
         setState(userId, null);
@@ -185,7 +240,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 5. 위치 요청 감지
+      // 6. 위치 요청 감지
       if (isLocationRequest(userText)) {
         const searchType = detectSearchType(userText);
         setState(userId, 'awaiting_location_' + searchType);
@@ -200,7 +255,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 6. 일반 AI 응답
+      // 7. 일반 AI 응답
       const aiReply = await generateReply(userText, lang);
       await replyMessage(event.replyToken, aiReply);
     }
