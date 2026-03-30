@@ -1,3 +1,41 @@
+const AREA_MAP = {
+  'yongsan': '용산',
+  'hongdae': '홍대',
+  'gangnam': '강남',
+  'myeongdong': '명동',
+  'itaewon': '이태원',
+  'sinchon': '신촌',
+  'sincheon': '신천',
+  'jongno': '종로',
+  'insadong': '인사동',
+  'dongdaemun': '동대문',
+  'mapo': '마포',
+  'yeouido': '여의도',
+  'hapjeong': '합정',
+  'sangam': '상암',
+  'apgujeong': '압구정',
+  'cheongdam': '청담',
+  'samsung': '삼성동',
+  'seolleung': '선릉',
+  'jamsil': '잠실',
+  'songpa': '송파',
+  'suwon': '수원',
+  'incheon': '인천',
+  'busan': '부산',
+  'jeju': '제주',
+  'sokcho': '속초',
+  'seoul': '서울',
+  'gangwon': '강원',
+  'daejeon': '대전',
+  'daegu': '대구',
+  'gwangju': '광주',
+};
+
+function translateArea(text = '') {
+  const t = text.trim().toLowerCase();
+  return AREA_MAP[t] || text;
+}
+
 const CATEGORY_MAP = {
   restaurant: 'FD6',
   cafe: 'CE7',
@@ -16,37 +54,14 @@ const QUERY_MAP = {
   hotel: '호텔',
 };
 
-// 영문 주소를 한글로 변환
-async function convertToKoreanAddress(address) {
-  const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
-  const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`;
-
-  const response = await fetch(url, {
-    headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` },
-  });
-
-  if (!response.ok) return address;
-
-  const data = await response.json();
-  if (data.documents && data.documents.length > 0) {
-    return data.documents[0].address_name || address;
-  }
-  return address;
-}
-
 export async function searchByKeyword(areaKeyword, type = 'restaurant') {
+  const translatedArea = translateArea(areaKeyword);
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
   if (!KAKAO_API_KEY) return null;
 
-  // 영문이 포함된 경우 한글 변환 시도
-  const hasEnglish = /[a-zA-Z]/.test(areaKeyword);
-  const searchArea = hasEnglish
-    ? await convertToKoreanAddress(areaKeyword)
-    : areaKeyword;
-
   const categoryCode = CATEGORY_MAP[type] || 'FD6';
   const queryWord = QUERY_MAP[type] || '맛집';
-  const searchQuery = `${searchArea} ${queryWord}`;
+  const searchQuery = `${translatedArea} ${queryWord}`;
 
   const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&category_group_code=${categoryCode}&size=3`;
 
