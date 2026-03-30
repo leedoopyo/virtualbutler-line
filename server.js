@@ -9,6 +9,7 @@ import { generateReply } from './src/ai.js';
 import { analyzeImage } from './src/vision.js';
 import { isLocationRequest, locationReceivedMessage, detectSearchType } from './src/location.js';
 import { searchNearby, searchByKeyword } from './src/places.js';
+import { isEventRequest, searchEvents } from './src/events.js';
 
 dotenv.config();
 
@@ -211,9 +212,37 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 4. 문화행사 검색
+      if (isEventRequest(userText)) {
+        try {
+          const results = await searchEvents(userText, lang);
+          if (results) {
+            const guide = {
+              en: '🗺️ Tap the link to find on Kakao Map!',
+              vi: '🗺️ Nhấn link để tìm trên Kakao Map!',
+              id: '🗺️ Ketuk link untuk mencari di Kakao Map!',
+              mn: '🗺️ Линк дээр дарж Kakao Map дээр хайна уу!',
+            };
+            await replyMessage(event.replyToken, results, guide[lang] || guide.en);
+          } else {
+            const notFound = {
+              en: '😅 No events found for today. Try searching for a specific city!\n(e.g. "Seoul concert" / "Busan festival")',
+              vi: '😅 Không tìm thấy sự kiện hôm nay. Thử tìm theo thành phố!\n(vd: "Seoul concert" / "Busan festival")',
+              id: '😅 Tidak ada acara hari ini. Coba cari per kota!\n(cth: "Seoul concert" / "Busan festival")',
+              mn: '😅 Өнөөдөр арга хэмжээ олдсонгүй. Хот заан хайна уу!\n(жш: "Seoul concert" / "Busan festival")',
+            };
+            await replyMessage(event.replyToken, notFound[lang] || notFound.en);
+          }
+        } catch (err) {
+          console.error('Event search failed:', err.message);
+          await replyMessage(event.replyToken, await generateReply(userText, lang));
+        }
+        continue;
+      }
+
       const currentState = getState(userId);
 
-      // 4. 위치 감지된 상태에서 카테고리 입력
+      // 5. 위치 감지된 상태에서 카테고리 입력
       if (currentState && currentState.startsWith('has_location:')) {
         const detectedLocation = currentState.replace('has_location:', '');
         const searchType = detectSearchType(userText);
@@ -222,9 +251,8 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 5. 위치 대기 상태
+      // 6. 위치 대기 상태
       if (currentState && currentState.startsWith('awaiting_location')) {
-        // 카테고리만 입력했으면 지역명 다시 요청 (저장된 타입 유지)
         if (isCategoryOnly(userText)) {
           const newSearchType = detectSearchType(userText);
           setState(userId, 'awaiting_location_' + newSearchType);
@@ -238,7 +266,6 @@ app.post('/webhook', async (req, res) => {
           continue;
         }
 
-        // 저장된 searchType 사용 (핵심 수정!)
         const savedType = currentState.replace('awaiting_location_', '');
         const searchType = savedType && savedType !== 'awaiting_location' ? savedType : detectSearchType(userText);
         setState(userId, null);
@@ -246,7 +273,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 6. 위치 요청 감지
+      // 7. 위치 요청 감지
       if (isLocationRequest(userText)) {
         const searchType = detectSearchType(userText);
         setState(userId, 'awaiting_location_' + searchType);
@@ -260,7 +287,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 7. 일반 AI 응답
+      // 8. 일반 AI 응답
       const aiReply = await generateReply(userText, lang);
       await replyMessage(event.replyToken, aiReply);
     }
