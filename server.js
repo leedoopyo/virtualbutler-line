@@ -15,6 +15,9 @@ const {
 const app = express();
 const openai = new OpenAI({ apiKey: OPENAI_API_KEY });
 
+// 👉 유저 언어 저장 (핵심)
+const userLangMap = new Map();
+
 app.use('/webhook', express.raw({ type: '*/*' }));
 
 function verifyLineSignature(channelSecret, rawBody, signature) {
@@ -25,126 +28,83 @@ function verifyLineSignature(channelSecret, rawBody, signature) {
   return hash === signature;
 }
 
-function detectLanguage(text = '') {
-  const t = text.toLowerCase();
+// 👉 언어 선택 감지
+function normalizeLanguageChoice(text = '') {
+  const t = text.trim().toLowerCase();
 
-  // 한국어
-  if (/[가-힣]/.test(text)) return 'ko';
+  if (t === 'vi') return 'vi';
+  if (t === 'id') return 'id';
+  if (t === 'mn') return 'mn';
 
-  // 베트남어
-  if (
-    /[ăâđêôơưáàảãạấầẩẫậắằẳẵặéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]/i.test(text) ||
-    t.includes('xin') ||
-    t.includes('chào') ||
-    t.includes('giúp')
-  ) {
-    return 'vi';
-  }
-
-  // 인도네시아어
-  if (
-    t.includes('halo') ||
-    t.includes('makanan') ||
-    t.includes('restoran') ||
-    t.includes('tolong') ||
-    t.includes('rumah sakit')
-  ) {
-    return 'id';
-  }
-
-  // 몽골어
-  if (/[А-Яа-яӨөҮүЁё]/.test(text)) return 'mn';
-
-  // 영어
-  if (/[a-zA-Z]/.test(text)) return 'en';
-
-  return 'unknown';
+  return null;
 }
 
+// 👉 기본 안내 (영어)
+function languageSelectionMessage() {
+  return `Welcome to Virtual Butler Korea 🇰🇷
+
+Please choose your language:
+1. Tiếng Việt (VI)
+2. Bahasa Indonesia (ID)
+3. Монгол (MN)
+
+Type:
+VI / ID / MN`;
+}
+
+// 👉 응급 대응
 function isEmergency(text = '') {
   const t = text.toLowerCase();
 
   return (
-    t.includes('accident') ||
     t.includes('hospital') ||
     t.includes('police') ||
-    t.includes('passport lost') ||
+    t.includes('accident') ||
     t.includes('emergency') ||
-    t.includes('ambulance') ||
-    t.includes('help me') ||
-    t.includes('hospital now') ||
-    t.includes('hospital') ||
-    t.includes('tai nạn') ||
-    t.includes('cấp cứu') ||
-    t.includes('bệnh viện') ||
-    t.includes('polisi') ||
-    t.includes('darurat') ||
-    t.includes('rumah sakit') ||
-    t.includes('osol') ||
-    t.includes('turgen') ||
-    t.includes('эмнэлэг') ||
-    t.includes('цагдаа')
+    t.includes('ambulance')
   );
 }
 
 function emergencyReply(lang) {
   if (lang === 'vi') {
-    return '🚨 Gọi ngay: 112 (cảnh sát), 119 (cấp cứu). Gửi vị trí hiện tại của bạn!';
+    return '🚨 Gọi ngay: 112 (cảnh sát), 119 (cấp cứu). Gửi vị trí của bạn!';
   }
   if (lang === 'id') {
-    return '🚨 Hubungi segera: 112 (polisi), 119 (darurat). Kirim lokasi Anda sekarang!';
+    return '🚨 Hubungi: 112 (polisi), 119 (darurat). Kirim lokasi Anda!';
   }
   if (lang === 'mn') {
-    return '🚨 Яаралтай: 112 (цагдаа), 119 (түргэн тусламж). Одоогийн байршлаа илгээнэ үү!';
+    return '🚨 112 (цагдаа), 119 (түргэн). Байршлаа илгээнэ үү!';
   }
-  if (lang === 'ko') {
-    return '🚨 긴급 상황이면 112(경찰), 119(구급)로 바로 전화하세요. 현재 위치를 보내주세요.';
-  }
-  return '🚨 Call 112 (police) or 119 (ambulance) now. Please send your current location.';
+  return '🚨 Call 112 (police) or 119 (ambulance). Send your location!';
 }
 
-function languageSelectionMessage(lang = 'en') {
-  if (lang === 'ko') {
-    return `이 서비스는 베트남어, 인도네시아어, 몽골어 여행객용입니다.
+// 👉 GPT 응답 생성
+async function generateReply(userText, lang) {
+  const language =
+    lang === 'vi'
+      ? 'Vietnamese'
+      : lang === 'id'
+      ? 'Indonesian'
+      : lang === 'mn'
+      ? 'Mongolian'
+      : 'English';
 
-언어를 선택해 주세요:
-1. Tiếng Việt
-2. Bahasa Indonesia
-3. Монгол
+  const response = await openai.responses.create({
+    model: 'gpt-5',
+    input: `Reply in ${language}.
+You are a Korea travel assistant for foreign tourists.
 
-아래 중 하나를 보내주세요:
-VI / ID / MN`;
-  }
+Keep responses short, practical, and helpful.
 
-  return `Welcome to Virtual Butler Korea 🇰🇷
+User: ${userText}`,
+  });
 
-Please choose your language:
-1. Tiếng Việt
-2. Bahasa Indonesia
-3. Монгол
-
-Please send:
-VI / ID / MN`;
+  return response.output_text;
 }
 
-function normalizeLanguageChoice(text = '') {
-  const t = text.trim().toLowerCase();
-
-  if (t === 'vi' || t === 'vietnamese' || t === 'tiếng việt' || t === 'viet') {
-    return 'vi';
-  }
-  if (t === 'id' || t === 'indonesian' || t === 'bahasa' || t === 'bahasa indonesia') {
-    return 'id';
-  }
-  if (t === 'mn' || t === 'mongolian' || t === 'монгол') {
-    return 'mn';
-  }
-
-  return null;
-}
-
+// 👉 LINE reply
 async function replyMessage(replyToken, text) {
-  const response = await fetch('https://api.line.me/v2/bot/message/reply', {
+  await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -155,104 +115,77 @@ async function replyMessage(replyToken, text) {
       messages: [{ type: 'text', text }],
     }),
   });
-
-  const resultText = await response.text();
-  console.log('LINE reply status:', response.status, resultText);
-
-  if (!response.ok) {
-    throw new Error(`LINE reply failed: ${response.status} ${resultText}`);
-  }
 }
 
-async function generateReply(userText, lang) {
-  if (lang === 'unknown' || lang === 'en') {
-    return languageSelectionMessage('en');
-  }
-
-  if (lang === 'ko') {
-    return languageSelectionMessage('ko');
-  }
-
-  const language =
-    lang === 'vi'
-      ? 'Vietnamese'
-      : lang === 'id'
-      ? 'Indonesian'
-      : 'Mongolian';
-
-  const response = await openai.responses.create({
-    model: 'gpt-5',
-    input: `Reply in ${language}. 
-You are a helpful Korea travel assistant for foreign travelers.
-Keep the reply short, practical, and friendly.
-If the user asks about transport, food, SIM, T-money, translation, or nearby places, answer simply and ask one useful follow-up question when needed.
-
-User: ${userText}`,
-  });
-
-  return response.output_text;
-}
-
+// 👉 서버 체크용
 app.get('/', (req, res) => {
-  res.status(200).send('Virtual Butler LINE bot is running.');
+  res.send('OK');
 });
 
+// 👉 핵심 webhook
 app.post('/webhook', async (req, res) => {
-  console.log('Webhook received at:', new Date().toISOString());
-
   try {
     const signature = req.header('x-line-signature');
 
     if (!verifyLineSignature(LINE_CHANNEL_SECRET, req.body, signature)) {
-      console.error('Invalid LINE signature');
       return res.status(401).send('Invalid signature');
     }
 
     const body = JSON.parse(req.body.toString('utf8'));
-    console.log('LINE events count:', body.events?.length || 0);
 
     res.status(200).send('OK');
 
     for (const event of body.events) {
-      console.log('Event type:', event.type);
+      if (event.type !== 'message' || event.message.type !== 'text') continue;
 
-      if (event.type !== 'message' || event.message.type !== 'text') {
-        continue;
-      }
+      const userText = event.message.text;
+      const userId = event.source.userId;
 
-      const userText = event.message.text || '';
-      console.log('User text:', userText);
+      console.log('User:', userId, 'Text:', userText);
 
-      const forcedChoice = normalizeLanguageChoice(userText);
-      if (forcedChoice) {
-        let welcome = '';
-        if (forcedChoice === 'vi') {
-          welcome =
-            'Xin chào! Tôi có thể hỗ trợ du lịch ở Hàn Quốc: tàu điện/bus, quán ăn gần bạn, SIM/T-money, dịch nhanh tiếng Hàn, hoặc gợi ý lịch trình. Bạn đang ở đâu?';
-        } else if (forcedChoice === 'id') {
-          welcome =
-            'Halo! Saya bisa membantu perjalanan Anda di Korea: subway/bus, rekomendasi makanan terdekat, SIM/T-money, terjemahan cepat bahasa Korea, atau saran itinerary. Anda sedang di mana?';
+      // 👉 1. 언어 선택 했는지 확인
+      const selectedLang = normalizeLanguageChoice(userText);
+
+      if (selectedLang) {
+        userLangMap.set(userId, selectedLang);
+
+        let msg = '';
+        if (selectedLang === 'vi') {
+          msg =
+            'Xin chào! Tôi có thể giúp bạn về tàu điện, quán ăn, SIM, hoặc lịch trình. Bạn đang ở đâu?';
+        } else if (selectedLang === 'id') {
+          msg =
+            'Halo! Saya bisa bantu subway, makanan, SIM, atau itinerary. Anda di mana sekarang?';
         } else {
-          welcome =
-            'Сайн байна уу! Би Солонгос дахь аялалд тань тусалж чадна: метро/автобус, ойролцоох хоолны газар, SIM/T-money, солонгос хэлний хурдан орчуулга, эсвэл аяллын санал. Та одоо хаана байна?';
+          msg =
+            'Сайн байна уу! Би метро, хоол, SIM, аяллын зөвлөгөө өгч чадна. Та хаана байна?';
         }
 
-        await replyMessage(event.replyToken, welcome);
+        await replyMessage(event.replyToken, msg);
         continue;
       }
 
-      const lang = detectLanguage(userText);
+      // 👉 2. 저장된 언어 확인
+      const userLang = userLangMap.get(userId);
 
+      // 👉 3. 아직 선택 안했으면 → 영어 안내
+      if (!userLang) {
+        await replyMessage(event.replyToken, languageSelectionMessage());
+        continue;
+      }
+
+      // 👉 4. 응급 상황
       if (isEmergency(userText)) {
-        await replyMessage(event.replyToken, emergencyReply(lang));
+        await replyMessage(event.replyToken, emergencyReply(userLang));
         continue;
       }
 
-      const aiReply = await generateReply(userText, lang);
+      // 👉 5. GPT 응답
+      const aiReply = await generateReply(userText, userLang);
       await replyMessage(event.replyToken, aiReply);
     }
-  } catch (error) {
-    console.error('Webhook handling failed:', error);
+  } catch (err) {
+    console.error(err);
   }
 });
 
