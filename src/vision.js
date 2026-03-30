@@ -39,22 +39,21 @@ export async function analyzeImage(messageId, lang) {
           },
           {
             type: 'text',
-            text: `You are Virtual Butler Korea 🇰🇷.
+            text: `You are Virtual Butler Korea.
 Analyze this image and help the user.
 Reply in ${language} only. Keep it short and practical.
 
-IMPORTANT: If you can identify a location in Korea from this image (street signs, building names, landmarks, area names), extract the location name in Korean or English.
+If you can identify a location in Korea from signs, landmarks, or area names in this image, extract it.
 
-At the very end of your response, add this line in English only (regardless of reply language):
-LOCATION: [location name in Korean or English, e.g. "강남" or "Gangnam"] or LOCATION: unknown
+At the very end of your response add this line in English only:
+LOCATION: [location name] or LOCATION: unknown
 
-- Menu/food photo → translate items, recommend 1-2 dishes
-- Korean sign/map → explain what it says and how to get there
-- Document/contract → summarize key points in simple terms
-- Medicine/pharmacy bag → explain dosage and usage (add: consult a doctor disclaimer)
-- Food photo → describe it, mention if likely halal or not
-- Street/building photo → describe the location and area
-- Unclear image → describe what you see and ask what help they need`,
+Examples of what to do:
+- Menu photo: translate and recommend dishes
+- Street signs: explain location and area
+- Document: summarize key points
+- Medicine: explain usage with doctor disclaimer
+- Food: describe and mention if halal`,
           },
         ],
       },
@@ -62,13 +61,9 @@ LOCATION: [location name in Korean or English, e.g. "강남" or "Gangnam"] or LO
   });
 
   const fullText = response.choices[0].message.content;
-
-  // LOCATION 추출
   const locationMatch = fullText.match(/LOCATION:\s*(.+)/i);
   const location = locationMatch ? locationMatch[1].trim() : null;
-
-  // LOCATION 줄 제거한 실제 답변
   const cleanText = fullText.replace(/LOCATION:\s*.+/i, '').trim();
 
   return { text: cleanText, location };
-  }
+}
