@@ -16,13 +16,37 @@ const QUERY_MAP = {
   hotel: '호텔',
 };
 
+// 영문 주소를 한글로 변환
+async function convertToKoreanAddress(address) {
+  const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
+  const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` },
+  });
+
+  if (!response.ok) return address;
+
+  const data = await response.json();
+  if (data.documents && data.documents.length > 0) {
+    return data.documents[0].address_name || address;
+  }
+  return address;
+}
+
 export async function searchByKeyword(areaKeyword, type = 'restaurant') {
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
   if (!KAKAO_API_KEY) return null;
 
+  // 영문이 포함된 경우 한글 변환 시도
+  const hasEnglish = /[a-zA-Z]/.test(areaKeyword);
+  const searchArea = hasEnglish
+    ? await convertToKoreanAddress(areaKeyword)
+    : areaKeyword;
+
   const categoryCode = CATEGORY_MAP[type] || 'FD6';
   const queryWord = QUERY_MAP[type] || '맛집';
-  const searchQuery = `${areaKeyword} ${queryWord}`;
+  const searchQuery = `${searchArea} ${queryWord}`;
 
   const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&category_group_code=${categoryCode}&size=3`;
 
@@ -35,15 +59,6 @@ export async function searchByKeyword(areaKeyword, type = 'restaurant') {
   const data = await response.json();
   const places = data.documents?.slice(0, 3);
   if (!places || places.length === 0) return null;
-
-  const emoji = {
-    restaurant: '🍜',
-    cafe: '☕',
-    halal: '🕌',
-    pharmacy: '💊',
-    hospital: '🏥',
-    hotel: '🏨',
-  }[type] || '📍';
 
   return places
     .map((p, i) => `${i + 1}. ${p.place_name}\n   📍 ${p.road_address_name || p.address_name}\n   📞 ${p.phone || '번호 없음'}`)
