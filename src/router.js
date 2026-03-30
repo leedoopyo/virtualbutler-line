@@ -1,66 +1,97 @@
-import OpenAI from 'openai';
+import { generateReply } from './ai.js';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// 키워드 기반 fallback
+function fallbackIntent(text = '') {
+  const t = text.toLowerCase();
 
-export async function detectIntent(userText, lang = 'en') {
-  const prompt = `
-You are an intent router for a Korea travel assistant chatbot.
+  if (t.includes('hospital') || t.includes('clinic')) {
+    return { intent: 'places', searchType: 'hospital' };
+  }
 
-Classify the user's message into ONE of these intents:
-- emergency
-- places
-- events
-- image_help
-- general
+  if (t.includes('pharmacy') || t.includes('medicine')) {
+    return { intent: 'places', searchType: 'pharmacy' };
+  }
 
-Also extract:
-- searchType: one of restaurant, cafe, hotel, pharmacy, hospital, halal, attraction, event, unknown
-- needLocation: true or false
-- followUpQuestion: short natural follow-up question if the request is ambiguous
+  if (t.includes('hotel') || t.includes('stay')) {
+    return { intent: 'places', searchType: 'hotel' };
+  }
 
-Return ONLY valid JSON in this format:
+  if (t.includes('restaurant') || t.includes('food') || t.includes('eat')) {
+    return { intent: 'places', searchType: 'restaurant' };
+  }
+
+  if (t.includes('cafe') || t.includes('coffee')) {
+    return { intent: 'places', searchType: 'cafe' };
+  }
+
+  if (t.includes('halal')) {
+    return { intent: 'places', searchType: 'halal' };
+  }
+
+  if (t.includes('event') || t.includes('concert') || t.includes('festival') || t.includes('show') || t.includes('dance')) {
+    return { intent: 'events', searchType: 'event' };
+  }
+
+  if (t.includes('help') || t.includes('emergency') || t.includes('police')) {
+    return { intent: 'emergency' };
+  }
+
+  return { intent: 'general' };
+}
+
+export async function detectIntent(text = '', lang = 'en') {
+  try {
+    const prompt = `
+You are an intent classifier for a travel assistant.
+
+Analyze the user's message and return JSON only.
+
 {
-  "intent": "places",
-  "searchType": "restaurant",
-  "needLocation": true,
-  "followUpQuestion": "Which area are you in?"
+  "intent": "places | events | emergency | general",
+  "searchType": "restaurant | cafe | hotel | pharmacy | hospital | halal | attraction | event",
+  "followUpQuestion": "natural question to continue conversation"
 }
 
 Rules:
-- emergency if user mentions urgent medical, police, fire, accident, passport lost, danger
-- places if user wants nearby restaurants, cafes, hotels, pharmacy, hospital, halal food, tourist attractions
-- events if user wants concerts, festivals, performances, shows, exhibitions, things to do today
-- image_help if user is talking about a photo, image, menu picture, medicine photo, sign photo
-- general for everything else
-- needLocation should be true if nearby search would help
-- If unclear, still choose the best intent and add a helpful followUpQuestion
+- "hospital", "pharmacy" → places
+- "concert", "festival", "dance", "show" → events
+- "help", "emergency" → emergency
+- If unclear → general
 
-User language: ${lang}
-User message: ${userText}
+VERY IMPORTANT:
+- followUpQuestion MUST be natural and human-like
+- Do NOT repeat same question
+- If user already gave location → ask what they need
+- If user gave category → ask location
+- If both → no follow-up needed (empty string)
+
+User message:
+"${text}"
 `;
 
-  try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.1,
-      messages: [{ role: 'user', content: prompt }],
-    });
+    const aiResponse = await generateReply(prompt, 'en');
 
-    const raw = response.choices[0].message.content?.trim() || '{}';
-    const parsed = JSON.parse(raw);
+    // JSON 파싱 시도
+    const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+
+      return {
+        intent: parsed.intent || 'general',
+        searchType: parsed.searchType || '',
+        followUpQuestion: parsed.followUpQuestion || '',
+      };
+    }
+
+    throw new Error('Invalid JSON');
+  } catch (err) {
+    console.error('AI router failed, using fallback:', err.message);
+
+    const fallback = fallbackIntent(text);
 
     return {
-      intent: parsed.intent || 'general',
-      searchType: parsed.searchType || 'unknown',
-      needLocation: Boolean(parsed.needLocation),
-      followUpQuestion: parsed.followUpQuestion || '',
-    };
-  } catch (error) {
-    console.error('Intent detection failed:', error.message);
-    return {
-      intent: 'general',
-      searchType: 'unknown',
-      needLocation: false,
+      intent: fallback.intent,
+      searchType: fallback.searchType || '',
       followUpQuestion: '',
     };
   }
