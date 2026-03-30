@@ -29,11 +29,22 @@ const AREA_MAP = {
   'daejeon': '대전',
   'daegu': '대구',
   'gwangju': '광주',
+  'bucheon': '부천',
+  'bundang': '분당',
+  'ilsan': '일산',
+  'suwon': '수원',
 };
 
 function translateArea(text = '') {
   const t = text.trim().toLowerCase();
   return AREA_MAP[t] || text;
+}
+
+function kakaoMapLink(placeName, x, y) {
+  if (x && y) {
+    return `https://map.kakao.com/link/map/${encodeURIComponent(placeName)},${y},${x}`;
+  }
+  return `https://map.kakao.com/link/search/${encodeURIComponent(placeName)}`;
 }
 
 const CATEGORY_MAP = {
@@ -57,17 +68,22 @@ const QUERY_MAP = {
 export async function searchByKeyword(areaKeyword, type = 'restaurant') {
   const translatedArea = translateArea(areaKeyword);
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
+
+  console.log('Kakao search:', translatedArea, type);
+
   if (!KAKAO_API_KEY) return null;
 
   const categoryCode = CATEGORY_MAP[type] || 'FD6';
   const queryWord = QUERY_MAP[type] || '맛집';
   const searchQuery = `${translatedArea} ${queryWord}`;
 
-  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&category_group_code=${categoryCode}&size=3`;
+  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&size=3`;
 
   const response = await fetch(url, {
     headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` },
   });
+
+  console.log('Kakao status:', response.status);
 
   if (!response.ok) return null;
 
@@ -76,7 +92,12 @@ export async function searchByKeyword(areaKeyword, type = 'restaurant') {
   if (!places || places.length === 0) return null;
 
   return places
-    .map((p, i) => `${i + 1}. ${p.place_name}\n   📍 ${p.road_address_name || p.address_name}\n   📞 ${p.phone || '번호 없음'}`)
+    .map((p, i) =>
+      `${i + 1}. ${p.place_name}\n` +
+      `   📍 ${p.road_address_name || p.address_name}\n` +
+      `   📞 ${p.phone || '번호 없음'}\n` +
+      `   🗺️ ${kakaoMapLink(p.place_name, p.x, p.y)}`
+    )
     .join('\n\n');
 }
 
@@ -98,7 +119,13 @@ export async function searchNearby(lat, lng, type = 'restaurant') {
   if (!places || places.length === 0) return null;
 
   return places
-    .map((p, i) => `${i + 1}. ${p.place_name}\n   📍 ${p.road_address_name || p.address_name}\n   📞 ${p.phone || '번호 없음'}\n   🚶 ${p.distance}m`)
+    .map((p, i) =>
+      `${i + 1}. ${p.place_name}\n` +
+      `   📍 ${p.road_address_name || p.address_name}\n` +
+      `   📞 ${p.phone || '번호 없음'}\n` +
+      `   🚶 ${p.distance}m\n` +
+      `   🗺️ ${kakaoMapLink(p.place_name, p.x, p.y)}`
+    )
     .join('\n\n');
 }
 
