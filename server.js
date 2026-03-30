@@ -52,11 +52,40 @@ function isCategoryOnly(text = '') {
     'khách sạn', 'nhà hàng', 'cà phê', 'nhà thuốc',
     'restoran', 'apotek', 'kafe', 'makanan',
     'буудал', 'ресторан', 'эмийн сан', 'эмнэлэг',
-    'nearby hotel', 'nearby restaurant', 'nearby cafe',
-    'nearby pharmacy', 'nearby hospital', 'nearby food',
   ];
   const t = text.trim().toLowerCase();
-  return categories.some(c => t === c || t === 'nearby ' + c);
+  return categories.some(c => t === c);
+}
+
+const typeLabel = {
+  restaurant: { en: '🍜 Restaurants', vi: '🍜 Nhà hàng', id: '🍜 Restoran', mn: '🍜 Ресторан' },
+  cafe: { en: '☕ Cafes', vi: '☕ Quán cà phê', id: '☕ Kafe', mn: '☕ Кафе' },
+  hotel: { en: '🏨 Hotels', vi: '🏨 Khách sạn', id: '🏨 Hotel', mn: '🏨 Зочид буудал' },
+  pharmacy: { en: '💊 Pharmacies', vi: '💊 Nhà thuốc', id: '💊 Apotek', mn: '💊 Эмийн сан' },
+  hospital: { en: '🏥 Clinics', vi: '🏥 Phòng khám', id: '🏥 Klinik', mn: '🏥 Эмнэлэг' },
+  halal: { en: '🕌 Halal food', vi: '🕌 Đồ ăn halal', id: '🕌 Makanan halal', mn: '🕌 Халал хоол' },
+};
+
+async function handleSearch(replyToken, areaText, searchType, lang) {
+  try {
+    const results = await searchByKeyword(areaText, searchType);
+    const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
+
+    if (results) {
+      await replyMessage(replyToken, `${label} near "${areaText}":\n\n${results}`);
+    } else {
+      const notFound = {
+        en: `😅 No results near "${areaText}". Try another area!`,
+        vi: `😅 Không tìm thấy gần "${areaText}". Thử khu vực khác!`,
+        id: `😅 Tidak ada hasil dekat "${areaText}". Coba area lain!`,
+        mn: `😅 "${areaText}" орчимд үр дүн олдсонгүй. Өөр газар оруулна уу!`,
+      };
+      await replyMessage(replyToken, notFound[lang] || notFound.en);
+    }
+  } catch (err) {
+    console.error('Search failed:', err.message);
+    await replyMessage(replyToken, await generateReply(areaText, lang));
+  }
 }
 
 app.get('/', (req, res) => {
@@ -131,7 +160,6 @@ app.post('/webhook', async (req, res) => {
             };
             await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
           }
-
         } catch (err) {
           console.error('Image analysis failed:', err.message);
           const errorMsg = {
@@ -179,45 +207,16 @@ app.post('/webhook', async (req, res) => {
         const detectedLocation = currentState.replace('has_location:', '');
         const searchType = detectSearchType(userText);
         setState(userId, null);
-
-        try {
-          const results = await searchByKeyword(detectedLocation, searchType);
-
-          const typeLabel = {
-            restaurant: { en: '🍜 Restaurants', vi: '🍜 Nhà hàng', id: '🍜 Restoran', mn: '🍜 Ресторан' },
-            cafe: { en: '☕ Cafes', vi: '☕ Quán cà phê', id: '☕ Kafe', mn: '☕ Кафе' },
-            hotel: { en: '🏨 Hotels', vi: '🏨 Khách sạn', id: '🏨 Hotel', mn: '🏨 Зочид буудал' },
-            pharmacy: { en: '💊 Pharmacies', vi: '💊 Nhà thuốc', id: '💊 Apotek', mn: '💊 Эмийн сан' },
-            hospital: { en: '🏥 Clinics', vi: '🏥 Phòng khám', id: '🏥 Klinik', mn: '🏥 Эмнэлэг' },
-            halal: { en: '🕌 Halal food', vi: '🕌 Đồ ăn halal', id: '🕌 Makanan halal', mn: '🕌 Халал хоол' },
-          };
-
-          const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
-
-          if (results) {
-            await replyMessage(event.replyToken, `${label} near ${detectedLocation}:\n\n${results}`);
-          } else {
-            const notFound = {
-              en: `😅 No results near "${detectedLocation}". Try typing the area name manually!\n(e.g. "Gangnam hotel")`,
-              vi: `😅 Không tìm thấy gần "${detectedLocation}". Thử nhập thủ công!\n(vd: "Gangnam hotel")`,
-              id: `😅 Tidak ada hasil dekat "${detectedLocation}". Coba ketik manual!\n(cth: "Gangnam hotel")`,
-              mn: `😅 "${detectedLocation}" орчимд үр дүн олдсонгүй. Гараар оруулна уу!\n(жш: "Gangnam hotel")`,
-            };
-            await replyMessage(event.replyToken, notFound[lang] || notFound.en);
-          }
-        } catch (err) {
-          console.error('Search failed:', err.message);
-          await replyMessage(event.replyToken, await generateReply(userText, lang));
-        }
+        await handleSearch(event.replyToken, detectedLocation, searchType, lang);
         continue;
       }
 
       // 5. 위치 대기 상태
       if (currentState && currentState.startsWith('awaiting_location')) {
-        // 카테고리만 입력했으면 지역명 다시 요청
+        // 카테고리만 입력했으면 지역명 다시 요청 (저장된 타입 유지)
         if (isCategoryOnly(userText)) {
-          const searchType = detectSearchType(userText);
-          setState(userId, 'awaiting_location_' + searchType);
+          const newSearchType = detectSearchType(userText);
+          setState(userId, 'awaiting_location_' + newSearchType);
           const msg = {
             en: `📍 Which area are you in?\n(e.g. Gangnam / Hongdae / Yongsan / Myeongdong)`,
             vi: `📍 Bạn đang ở khu vực nào?\n(vd: Gangnam / Hongdae / Yongsan)`,
@@ -228,38 +227,11 @@ app.post('/webhook', async (req, res) => {
           continue;
         }
 
-        const searchType = detectSearchType(userText);
+        // 저장된 searchType 사용 (핵심 수정!)
+        const savedType = currentState.replace('awaiting_location_', '');
+        const searchType = savedType && savedType !== 'awaiting_location' ? savedType : detectSearchType(userText);
         setState(userId, null);
-
-        try {
-          const results = await searchByKeyword(userText, searchType);
-
-          const typeLabel = {
-            restaurant: { en: '🍜 Restaurants', vi: '🍜 Nhà hàng', id: '🍜 Restoran', mn: '🍜 Ресторан' },
-            cafe: { en: '☕ Cafes', vi: '☕ Quán cà phê', id: '☕ Kafe', mn: '☕ Кафе' },
-            hotel: { en: '🏨 Hotels', vi: '🏨 Khách sạn', id: '🏨 Hotel', mn: '🏨 Зочид буудал' },
-            pharmacy: { en: '💊 Pharmacies', vi: '💊 Nhà thuốc', id: '💊 Apotek', mn: '💊 Эмийн сан' },
-            hospital: { en: '🏥 Clinics', vi: '🏥 Phòng khám', id: '🏥 Klinik', mn: '🏥 Эмнэлэг' },
-            halal: { en: '🕌 Halal food', vi: '🕌 Đồ ăn halal', id: '🕌 Makanan halal', mn: '🕌 Халал хоол' },
-          };
-
-          const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
-
-          if (results) {
-            await replyMessage(event.replyToken, `${label} near "${userText}":\n\n${results}`);
-          } else {
-            const notFound = {
-              en: `😅 No results near "${userText}". Try another area!`,
-              vi: `😅 Không tìm thấy gần "${userText}". Thử khu vực khác!`,
-              id: `😅 Tidak ada hasil dekat "${userText}". Coba area lain!`,
-              mn: `😅 "${userText}" орчимд үр дүн олдсонгүй. Өөр газар оруулна уу!`,
-            };
-            await replyMessage(event.replyToken, notFound[lang] || notFound.en);
-          }
-        } catch (err) {
-          console.error('Search failed:', err.message);
-          await replyMessage(event.replyToken, await generateReply(userText, lang));
-        }
+        await handleSearch(event.replyToken, userText, searchType, lang);
         continue;
       }
 
@@ -267,7 +239,6 @@ app.post('/webhook', async (req, res) => {
       if (isLocationRequest(userText)) {
         const searchType = detectSearchType(userText);
         setState(userId, 'awaiting_location_' + searchType);
-
         const msg = {
           en: `📍 Which area are you in?\n\nType the area name\n(e.g. Hongdae / Myeongdong / Gangnam / Yongsan)`,
           vi: `📍 Bạn đang ở khu vực nào?\n\nNhập tên khu vực\n(vd: Hongdae / Myeongdong / Gangnam)`,
