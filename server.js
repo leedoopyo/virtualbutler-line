@@ -44,6 +44,21 @@ async function replyMessage(replyToken, ...texts) {
   }
 }
 
+function isCategoryOnly(text = '') {
+  const categories = [
+    'hotel', 'hotels', 'restaurant', 'restaurants', 'cafe', 'cafes',
+    'coffee', 'pharmacy', 'hospital', 'clinic', 'halal', 'food', 'eat',
+    '호텔', '식당', '맛집', '카페', '약국', '병원', '음식',
+    'khách sạn', 'nhà hàng', 'cà phê', 'nhà thuốc',
+    'restoran', 'apotek', 'kafe', 'makanan',
+    'буудал', 'ресторан', 'эмийн сан', 'эмнэлэг',
+    'nearby hotel', 'nearby restaurant', 'nearby cafe',
+    'nearby pharmacy', 'nearby hospital', 'nearby food',
+  ];
+  const t = text.trim().toLowerCase();
+  return categories.some(c => t === c || t === 'nearby ' + c);
+}
+
 app.get('/', (req, res) => {
   res.status(200).send('VirtualButler.Korea is running 🇰🇷');
 });
@@ -97,28 +112,25 @@ app.post('/webhook', async (req, res) => {
         try {
           const { text: analysisText, location: detectedLocation } = await analyzeImage(event.message.id, lang);
 
-          // 감지된 위치를 세션에 저장
           if (detectedLocation && detectedLocation.toLowerCase() !== 'unknown') {
             setState(userId, 'has_location:' + detectedLocation);
+            const followUp = {
+              en: `📍 I can see you're near "${detectedLocation}"!\nWhat do you need?\n(e.g. "hotel" / "restaurant" / "pharmacy")`,
+              vi: `📍 Tôi thấy bạn đang ở gần "${detectedLocation}"!\nBạn cần gì?\n(vd: "hotel" / "nhà hàng" / "nhà thuốc")`,
+              id: `📍 Saya lihat Anda dekat "${detectedLocation}"!\nAnda butuh apa?\n(cth: "hotel" / "restoran" / "apotek")`,
+              mn: `📍 Та "${detectedLocation}" орчимд байна!\nЮу хэрэгтэй вэ?\n(жш: "hotel" / "ресторан" / "эмийн сан")`,
+            };
+            await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
           } else {
             setState(userId, 'awaiting_location_restaurant');
+            const followUp = {
+              en: `📍 Want to find nearby places?\nType area name + what you need!\n(e.g. "Gangnam hotel" / "Hongdae restaurant")`,
+              vi: `📍 Muốn tìm nơi gần đây?\nNhập tên khu vực + nhu cầu!\n(vd: "Gangnam hotel" / "Hongdae nhà hàng")`,
+              id: `📍 Ingin mencari tempat terdekat?\nKetik nama area + kebutuhan!\n(cth: "Gangnam hotel" / "Hongdae restoran")`,
+              mn: `📍 Ойролцоох газар хайх уу?\nГазрын нэр + хэрэгцээгээ бичнэ үү!\n(жш: "Gangnam hotel" / "Hongdae ресторан")`,
+            };
+            await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
           }
-
-          const followUp = detectedLocation && detectedLocation.toLowerCase() !== 'unknown'
-            ? {
-                en: `📍 I can see you're near "${detectedLocation}"!\nWhat do you need?\n(e.g. "hotel" / "restaurant" / "pharmacy")`,
-                vi: `📍 Tôi thấy bạn đang ở gần "${detectedLocation}"!\nBạn cần gì?\n(vd: "hotel" / "nhà hàng" / "nhà thuốc")`,
-                id: `📍 Saya lihat Anda dekat "${detectedLocation}"!\nAnda butuh apa?\n(cth: "hotel" / "restoran" / "apotek")`,
-                mn: `📍 Та "${detectedLocation}" орчимд байна!\nЮу хэрэгтэй вэ?\n(жш: "hotel" / "ресторан" / "эмийн сан")`,
-              }
-            : {
-                en: `📍 Want to find nearby places?\nType area name + what you need!\n(e.g. "Gangnam hotel" / "Hongdae restaurant")`,
-                vi: `📍 Muốn tìm nơi gần đây?\nNhập tên khu vực + nhu cầu!\n(vd: "Gangnam hotel" / "Hongdae nhà hàng")`,
-                id: `📍 Ingin mencari tempat terdekat?\nKetik nama area + kebutuhan!\n(cth: "Gangnam hotel" / "Hongdae restoran")`,
-                mn: `📍 Ойролцоох газар хайх уу?\nГазрын нэр + хэрэгцээгээ бичнэ үү!\n(жш: "Gangnam hotel" / "Hongdae ресторан")`,
-              };
-
-          await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
 
         } catch (err) {
           console.error('Image analysis failed:', err.message);
@@ -160,51 +172,62 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 4. 위치 감지된 상태 + nearby 요청
       const currentState = getState(userId);
 
+      // 4. 위치 감지된 상태에서 카테고리 입력
       if (currentState && currentState.startsWith('has_location:')) {
         const detectedLocation = currentState.replace('has_location:', '');
+        const searchType = detectSearchType(userText);
+        setState(userId, null);
 
-        if (isLocationRequest(userText)) {
-          const searchType = detectSearchType(userText);
-          setState(userId, null);
+        try {
+          const results = await searchByKeyword(detectedLocation, searchType);
 
-          try {
-            const results = await searchByKeyword(detectedLocation, searchType);
+          const typeLabel = {
+            restaurant: { en: '🍜 Restaurants', vi: '🍜 Nhà hàng', id: '🍜 Restoran', mn: '🍜 Ресторан' },
+            cafe: { en: '☕ Cafes', vi: '☕ Quán cà phê', id: '☕ Kafe', mn: '☕ Кафе' },
+            hotel: { en: '🏨 Hotels', vi: '🏨 Khách sạn', id: '🏨 Hotel', mn: '🏨 Зочид буудал' },
+            pharmacy: { en: '💊 Pharmacies', vi: '💊 Nhà thuốc', id: '💊 Apotek', mn: '💊 Эмийн сан' },
+            hospital: { en: '🏥 Clinics', vi: '🏥 Phòng khám', id: '🏥 Klinik', mn: '🏥 Эмнэлэг' },
+            halal: { en: '🕌 Halal food', vi: '🕌 Đồ ăn halal', id: '🕌 Makanan halal', mn: '🕌 Халал хоол' },
+          };
 
-            const typeLabel = {
-              restaurant: { en: '🍜 Restaurants', vi: '🍜 Nhà hàng', id: '🍜 Restoran', mn: '🍜 Ресторан' },
-              cafe: { en: '☕ Cafes', vi: '☕ Quán cà phê', id: '☕ Kafe', mn: '☕ Кафе' },
-              hotel: { en: '🏨 Hotels', vi: '🏨 Khách sạn', id: '🏨 Hotel', mn: '🏨 Зочид буудал' },
-              pharmacy: { en: '💊 Pharmacies', vi: '💊 Nhà thuốc', id: '💊 Apotek', mn: '💊 Эмийн сан' },
-              hospital: { en: '🏥 Clinics', vi: '🏥 Phòng khám', id: '🏥 Klinik', mn: '🏥 Эмнэлэг' },
-              halal: { en: '🕌 Halal food', vi: '🕌 Đồ ăn halal', id: '🕌 Makanan halal', mn: '🕌 Халал хоол' },
+          const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
+
+          if (results) {
+            await replyMessage(event.replyToken, `${label} near ${detectedLocation}:\n\n${results}`);
+          } else {
+            const notFound = {
+              en: `😅 No results near "${detectedLocation}". Try typing the area name manually!\n(e.g. "Gangnam hotel")`,
+              vi: `😅 Không tìm thấy gần "${detectedLocation}". Thử nhập thủ công!\n(vd: "Gangnam hotel")`,
+              id: `😅 Tidak ada hasil dekat "${detectedLocation}". Coba ketik manual!\n(cth: "Gangnam hotel")`,
+              mn: `😅 "${detectedLocation}" орчимд үр дүн олдсонгүй. Гараар оруулна уу!\n(жш: "Gangnam hotel")`,
             };
-
-            const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
-
-            if (results) {
-              await replyMessage(event.replyToken, `${label} near ${detectedLocation}:\n\n${results}`);
-            } else {
-              const notFound = {
-                en: `😅 No results near "${detectedLocation}". Try typing the area name manually!`,
-                vi: `😅 Không tìm thấy gần "${detectedLocation}". Thử nhập tên khu vực thủ công!`,
-                id: `😅 Tidak ada hasil dekat "${detectedLocation}". Coba ketik nama area secara manual!`,
-                mn: `😅 "${detectedLocation}" орчимд үр дүн олдсонгүй. Газрын нэрийг гараар оруулна уу!`,
-              };
-              await replyMessage(event.replyToken, notFound[lang] || notFound.en);
-            }
-          } catch (err) {
-            console.error('Search failed:', err.message);
-            await replyMessage(event.replyToken, await generateReply(userText, lang));
+            await replyMessage(event.replyToken, notFound[lang] || notFound.en);
           }
-          continue;
+        } catch (err) {
+          console.error('Search failed:', err.message);
+          await replyMessage(event.replyToken, await generateReply(userText, lang));
         }
+        continue;
       }
 
-      // 5. 위치 대기 상태 처리
+      // 5. 위치 대기 상태
       if (currentState && currentState.startsWith('awaiting_location')) {
+        // 카테고리만 입력했으면 지역명 다시 요청
+        if (isCategoryOnly(userText)) {
+          const searchType = detectSearchType(userText);
+          setState(userId, 'awaiting_location_' + searchType);
+          const msg = {
+            en: `📍 Which area are you in?\n(e.g. Gangnam / Hongdae / Yongsan / Myeongdong)`,
+            vi: `📍 Bạn đang ở khu vực nào?\n(vd: Gangnam / Hongdae / Yongsan)`,
+            id: `📍 Anda di area mana?\n(cth: Gangnam / Hongdae / Yongsan)`,
+            mn: `📍 Та аль хороонд байна вэ?\n(жш: Gangnam / Hongdae / Yongsan)`,
+          };
+          await replyMessage(event.replyToken, msg[lang] || msg.en);
+          continue;
+        }
+
         const searchType = detectSearchType(userText);
         setState(userId, null);
 
