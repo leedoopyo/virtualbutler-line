@@ -1,17 +1,30 @@
 const CATEGORY_MAP = {
-  '1': 'FD6',
-  '2': 'CE7',
-  '3': 'FD6',
-  '4': 'PM9',
-  '5': 'HP8',
+  restaurant: 'FD6',
+  cafe: 'CE7',
+  halal: 'FD6',
+  pharmacy: 'PM9',
+  hospital: 'HP8',
+  hotel: 'AD5',
 };
 
-// 지역명으로 키워드 검색
-export async function searchByKeyword(keyword, category = 'FD6') {
+const QUERY_MAP = {
+  restaurant: '맛집',
+  cafe: '카페',
+  halal: '할랄 음식',
+  pharmacy: '약국',
+  hospital: '병원',
+  hotel: '호텔',
+};
+
+export async function searchByKeyword(areaKeyword, type = 'restaurant') {
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
   if (!KAKAO_API_KEY) return null;
 
-  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(keyword + ' 맛집')}&category_group_code=${category}&size=3`;
+  const categoryCode = CATEGORY_MAP[type] || 'FD6';
+  const queryWord = QUERY_MAP[type] || '맛집';
+  const searchQuery = `${areaKeyword} ${queryWord}`;
+
+  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&category_group_code=${categoryCode}&size=3`;
 
   const response = await fetch(url, {
     headers: { Authorization: `KakaoAK ${KAKAO_API_KEY}` },
@@ -23,17 +36,25 @@ export async function searchByKeyword(keyword, category = 'FD6') {
   const places = data.documents?.slice(0, 3);
   if (!places || places.length === 0) return null;
 
+  const emoji = {
+    restaurant: '🍜',
+    cafe: '☕',
+    halal: '🕌',
+    pharmacy: '💊',
+    hospital: '🏥',
+    hotel: '🏨',
+  }[type] || '📍';
+
   return places
     .map((p, i) => `${i + 1}. ${p.place_name}\n   📍 ${p.road_address_name || p.address_name}\n   📞 ${p.phone || '번호 없음'}`)
     .join('\n\n');
 }
 
-// 좌표로 근처 검색
-export async function searchNearby(lat, lng, category = '1') {
+export async function searchNearby(lat, lng, type = 'restaurant') {
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
   if (!KAKAO_API_KEY) return null;
 
-  const categoryCode = CATEGORY_MAP[category] || 'FD6';
+  const categoryCode = CATEGORY_MAP[type] || 'FD6';
   const url = `https://dapi.kakao.com/v2/local/search/category.json?category_group_code=${categoryCode}&x=${lng}&y=${lat}&radius=500&sort=distance`;
 
   const response = await fetch(url, {
