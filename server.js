@@ -1,4 +1,6 @@
-import crypto from 'crypto';
+좋아요! 이제 server.js 수정할게요.
+GitHub에서 server.js 열고 ✏️ 클릭 → 전체 선택(Ctrl+A) 후 삭제 → 아래 코드 붙여넣기:
+javascriptimport crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 
@@ -8,7 +10,7 @@ import { isEmergency, emergencyReply } from './src/emergency.js';
 import { generateReply } from './src/ai.js';
 import { analyzeImage } from './src/vision.js';
 import { isLocationRequest, requestLocationMessage, locationReceivedMessage } from './src/location.js';
-import { searchNearby } from './src/places.js';
+import { searchNearby, searchByKeyword } from './src/places.js';
 
 dotenv.config();
 
@@ -76,7 +78,13 @@ app.post('/webhook', async (req, res) => {
 
         const results = await searchNearby(latitude, longitude);
         if (results) {
-          await replyMessage(event.replyToken, results);
+          const header = {
+            en: '🍜 Nearby restaurants:\n\n',
+            vi: '🍜 Nhà hàng gần bạn:\n\n',
+            id: '🍜 Restoran terdekat:\n\n',
+            mn: '🍜 Ойролцоох рестораны:\n\n',
+          };
+          await replyMessage(event.replyToken, (header[lang || 'en']) + results);
         } else {
           await replyMessage(
             event.replyToken,
@@ -118,6 +126,7 @@ app.post('/webhook', async (req, res) => {
       const selectedLang = normalizeLanguageChoice(userText);
       if (selectedLang) {
         setSession(userId, selectedLang);
+        setState(userId, null);
         await replyMessage(event.replyToken, welcomeMessage(selectedLang));
         continue;
       }
@@ -134,16 +143,45 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 4. 위치 요청 감지
-      if (isLocationRequest(userText)) {
-        setState(userId, 'awaiting_location');
-        await replyMessage(event.replyToken, requestLocationMessage(lang));
+      // 4. 위치 대기 중 → 텍스트로 지역명 입력받기
+      if (getState(userId) === 'awaiting_location') {
+        setState(userId, null);
+        try {
+          const results = await searchByKeyword(userText);
+          if (results) {
+            const header = {
+              en: `🍜 Restaurants near "${userText}":\n\n`,
+              vi: `🍜 Nhà hàng gần "${userText}":\n\n`,
+              id: `🍜 Restoran dekat "${userText}":\n\n`,
+              mn: `🍜 "${userText}" орчмын ресторан:\n\n`,
+            };
+            await replyMessage(event.replyToken, (header[lang] || header.en) + results);
+          } else {
+            const notFound = {
+              en: `😅 No results found near "${userText}". Try another area name!`,
+              vi: `😅 Không tìm thấy kết quả gần "${userText}". Thử tên khu vực khác nhé!`,
+              id: `😅 Tidak ada hasil di dekat "${userText}". Coba nama area lain!`,
+              mn: `😅 "${userText}" орчимд үр дүн олдсонгүй. Өөр газрын нэр оруулна уу!`,
+            };
+            await replyMessage(event.replyToken, notFound[lang] || notFound.en);
+          }
+        } catch (err) {
+          console.error('Search failed:', err.message);
+          await replyMessage(event.replyToken, await generateReply(userText, lang));
+        }
         continue;
       }
 
-      // 5. 위치 대기 중인데 텍스트가 옴
-      if (getState(userId) === 'awaiting_location') {
-        await replyMessage(event.replyToken, requestLocationMessage(lang));
+      // 5. 위치 요청 감지
+      if (isLocationRequest(userText)) {
+        setState(userId, 'awaiting_location');
+        const msg = {
+          en: `📍 Which area are you in?\n\nType the area name (e.g. Hongdae / Myeongdong / Gangnam / Yongsan)\nor share your location via the + button below!`,
+          vi: `📍 Bạn đang ở khu vực nào?\n\nNhập tên khu vực (vd: Hongdae / Myeongdong / Gangnam)\nhoặc chia sẻ vị trí qua nút + bên dưới!`,
+          id: `📍 Anda di area mana?\n\nKetik nama area (cth: Hongdae / Myeongdong / Gangnam)\natau bagikan lokasi via tombol + di bawah!`,
+          mn: `📍 Та аль хороонд байна вэ?\n\nГазрын нэрийг бичнэ үү (жш: Hongdae / Myeongdong / Gangnam)\nэсвэл доорх + товчоор байршлаа илгээнэ үү!`,
+        };
+        await replyMessage(event.replyToken, msg[lang] || msg.en);
         continue;
       }
 
