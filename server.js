@@ -1,6 +1,4 @@
-좋아요! 이제 server.js 수정할게요.
-GitHub에서 server.js 열고 ✏️ 클릭 → 전체 선택(Ctrl+A) 후 삭제 → 아래 코드 붙여넣기:
-javascriptimport crypto from 'crypto';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 
