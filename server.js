@@ -64,6 +64,25 @@ function isCategoryOnly(text = '') {
   return categories.some((c) => t === c);
 }
 
+function looksLikeLocation(text = '') {
+  const t = text.trim().toLowerCase();
+
+  if (!t) return false;
+
+  const keywords = [
+    'station', 'stn', 'exit', 'dong', 'gu', 'ro', 'gil',
+    '역', '동', '구', '로', '길',
+  ];
+
+  if (keywords.some((k) => t.includes(k))) return true;
+
+  const shortPlaceLike =
+    text.trim().length <= 30 &&
+    /^[a-zA-Z0-9\s\-]+$/.test(text.trim());
+
+  return shortPlaceLike;
+}
+
 const typeLabel = {
   restaurant: { en: '🍜 Restaurants', vi: '🍜 Nhà hàng', id: '🍜 Restoran', mn: '🍜 Ресторан' },
   cafe: { en: '☕ Cafes', vi: '☕ Quán cà phê', id: '☕ Kafe', mn: '☕ Кафе' },
@@ -271,20 +290,36 @@ app.post('/webhook', async (req, res) => {
       }
 
       const currentState = getState(userId);
+      const savedLocation = getLocation(userId);
 
-      // 3. AI 라우팅
+      // 3. 텍스트 위치 저장
+      if (!savedLocation && looksLikeLocation(userText) && !isCategoryOnly(userText)) {
+        setLocation(userId, null, null, userText);
+
+        const gotLocation = {
+          en: `📍 Got it! You're near "${userText}". What do you need?\n(e.g. hotel / restaurant / pharmacy)`,
+          vi: `📍 Đã hiểu! Bạn đang ở gần "${userText}". Bạn cần gì?\n(vd: hotel / nhà hàng / nhà thuốc)`,
+          id: `📍 Baik! Anda berada dekat "${userText}". Anda butuh apa?\n(cth: hotel / restoran / apotek)`,
+          mn: `📍 Ойлголоо! Та "${userText}" орчимд байна. Юу хэрэгтэй вэ?\n(жш: hotel / ресторан / эмийн сан)`,
+        };
+
+        await replyMessage(event.replyToken, gotLocation[lang] || gotLocation.en);
+        continue;
+      }
+
+      // 4. AI 라우팅
       const route = await detectIntent(userText, lang);
       console.log('AI route:', route);
 
-      let followUp = await translateFollowUp(route.followUpQuestion, lang);
+      const followUp = await translateFollowUp(route.followUpQuestion, lang);
 
-      // 4. 긴급 상황
+      // 5. 긴급 상황
       if (route.intent === 'emergency' || isEmergency(userText)) {
         await replyMessage(event.replyToken, emergencyReply(lang));
         continue;
       }
 
-      // 5. 문화행사 검색
+      // 6. 문화행사 검색
       if (route.intent === 'events' || isEventRequest(userText)) {
         try {
           const results = await searchEvents(userText, lang);
@@ -315,7 +350,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 6. 이미지에서 위치 감지된 상태에서 카테고리 입력
+      // 7. 이미지에서 위치 감지된 상태에서 카테고리 입력
       if (currentState && currentState.startsWith('has_location:')) {
         const detectedLocation = currentState.replace('has_location:', '');
         const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
@@ -324,7 +359,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 7. 위치 대기 상태
+      // 8. 위치 대기 상태
       if (currentState && currentState.startsWith('awaiting_location')) {
         if (isCategoryOnly(userText)) {
           const newSearchType = getSafeSearchType(route.searchType || detectSearchType(userText));
@@ -352,12 +387,20 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 8. 장소 검색 의도
+      // 9. 저장된 텍스트 위치 + 카테고리 입력
+      if (savedLocation && savedLocation.address && isCategoryOnly(userText)) {
+        const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
+        await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
+        continue;
+      }
+
+      // 10. 장소 검색 의도
       if (route.intent === 'places' || isLocationRequest(userText)) {
         const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
-        const savedLocation = getLocation(userId);
 
-        if (savedLocation) {
+        if (savedLocation && savedLocation.address) {
+          await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
+        } else if (savedLocation && savedLocation.lat && savedLocation.lng) {
           try {
             const results = await searchNearby(savedLocation.lat, savedLocation.lng, searchType);
             const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
@@ -388,7 +431,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 9. 일반 AI 응답
+      // 11. 일반 AI 응답
       if (followUp) {
         const aiReply = await generateReply(
           `${userText}\n\nAsk this follow-up naturally if needed: ${followUp}`,
