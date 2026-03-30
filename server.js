@@ -49,13 +49,23 @@ async function replyMessage(replyToken, ...texts) {
   }
 }
 
+function cleanLocationText(text = '') {
+  return text
+    .replace(/^nearby\s+/i, '')
+    .replace(/^near\s+/i, '')
+    .replace(/^around\s+/i, '')
+    .replace(/^찾아줘\s+/i, '')
+    .trim();
+}
+
 function isCategoryOnly(text = '') {
   const categories = [
     'hotel', 'hotels', 'restaurant', 'restaurants', 'cafe', 'cafes',
     'coffee', 'pharmacy', 'hospital', 'clinic', 'halal', 'food', 'eat',
-    '호텔', '식당', '맛집', '카페', '약국', '병원', '음식',
+    'halal food', 'halal restaurant',
+    '호텔', '식당', '맛집', '카페', '약국', '병원', '음식', '할랄',
     'khách sạn', 'nhà hàng', 'cà phê', 'nhà thuốc',
-    'restoran', 'apotek', 'kafe', 'makanan',
+    'restoran', 'apotek', 'kafe', 'makanan', 'makanan halal',
     'буудал', 'ресторан', 'эмийн сан', 'эмнэлэг',
   ];
   const t = text.trim().toLowerCase();
@@ -81,7 +91,7 @@ function hasExplicitCategory(text = '', routeSearchType = '') {
     'hotel', 'cafe', 'coffee', 'pharmacy', 'hospital', 'clinic', 'halal',
     '호텔', '카페', '약국', '병원', '할랄',
     'khách sạn', 'cà phê', 'nhà thuốc', 'bệnh viện',
-    'apotek', 'restoran makanan halal',
+    'apotek', 'makanan halal',
     'буудал', 'кафе', 'эмийн сан', 'эмнэлэг',
   ];
   const t = text.toLowerCase();
@@ -179,7 +189,6 @@ app.post('/webhook', async (req, res) => {
         setLocation(userId, latitude, longitude, address || '');
         setState(userId, null);
 
-        // 카테고리가 이미 정해진 경우
         if (wantedType && wantedType !== 'unknown') {
           try {
             const results = await searchNearby(latitude, longitude, wantedType);
@@ -193,10 +202,9 @@ app.post('/webhook', async (req, res) => {
             await replyMessage(event.replyToken, locationReceivedMessage(lang || 'en', address || 'Current location'));
           }
         } else {
-          // 카테고리 모를 때 물어보기
+          setState(userId, 'awaiting_category');
           const askCat = ASK_CATEGORY[lang || 'en'] || ASK_CATEGORY.en;
           await replyMessage(event.replyToken, askCat(address || 'your location'));
-          setState(userId, 'awaiting_category');
         }
         continue;
       }
@@ -298,7 +306,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 6. 카테고리 대기 상태 (위치는 있고 카테고리만 기다리는 중)
+      // 6. 카테고리 대기 상태
       if (currentState === 'awaiting_category') {
         const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
         setState(userId, null);
@@ -313,6 +321,9 @@ app.post('/webhook', async (req, res) => {
           }
         } else if (loc?.address) {
           await handleSearch(event.replyToken, loc.address, searchType, lang, userText);
+        } else {
+          setState(userId, 'awaiting_location_' + searchType);
+          await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
         }
         continue;
       }
@@ -371,9 +382,8 @@ app.post('/webhook', async (req, res) => {
           if (categoryExplicit) {
             await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
           } else {
-            // 카테고리 없으면 물어보기
-            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
             setState(userId, 'awaiting_category');
+            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
             await replyMessage(event.replyToken, askCat(savedLocation.address));
           }
         } else if (savedLocation?.lat && savedLocation?.lng) {
@@ -387,27 +397,24 @@ app.post('/webhook', async (req, res) => {
               await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
             }
           } else {
-            const loc = savedLocation;
-            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
             setState(userId, 'awaiting_category');
+            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
             await replyMessage(event.replyToken, askCat('your location'));
           }
         } else {
-          // 위치도 카테고리도 없음
           if (categoryExplicit) {
             setState(userId, 'awaiting_location_' + searchType);
             await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
+          } else if (looksLikeLocation(userText)) {
+            // "Nearby sinsa station" → "sinsa station" 으로 정리해서 저장
+            const cleanedLocation = cleanLocationText(userText);
+            setLocation(userId, null, null, cleanedLocation);
+            setState(userId, 'awaiting_category');
+            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
+            await replyMessage(event.replyToken, askCat(cleanedLocation));
           } else {
-            // 위치이름처럼 보이면 위치 저장 + 카테고리 질문
-            if (looksLikeLocation(userText)) {
-              setLocation(userId, null, null, userText);
-              setState(userId, 'awaiting_category');
-              const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
-              await replyMessage(event.replyToken, askCat(userText));
-            } else {
-              setState(userId, 'awaiting_location_' + searchType);
-              await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
-            }
+            setState(userId, 'awaiting_location_' + searchType);
+            await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
           }
         }
         continue;
