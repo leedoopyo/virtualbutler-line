@@ -71,3 +71,4 @@ LOCATION: [location name in Korean or English, e.g. "강남" or "Gangnam"] or LO
   const cleanText = fullText.replace(/LOCATION:\s*.+/i, '').trim();
 
   return { text: cleanText, location };
+  }
