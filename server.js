@@ -71,8 +71,19 @@ async function handleSearch(replyToken, areaText, searchType, lang) {
     const results = await searchByKeyword(areaText, searchType);
     const label = (typeLabel[searchType] || typeLabel.restaurant)[lang] || typeLabel.restaurant.en;
 
+    const mapGuide = {
+      en: '🗺️ Tap the link to open in Kakao Map and get directions!',
+      vi: '🗺️ Nhấn vào link để mở Kakao Map và chỉ đường!',
+      id: '🗺️ Ketuk link untuk membuka Kakao Map dan petunjuk arah!',
+      mn: '🗺️ Линк дээр дарж Kakao Map дээр нээж чиглэл авна уу!',
+    };
+
     if (results) {
-      await replyMessage(replyToken, `${label} near "${areaText}":\n\n${results}`);
+      await replyMessage(
+        replyToken,
+        `${label} near "${areaText}":\n\n${results}`,
+        mapGuide[lang] || mapGuide.en
+      );
     } else {
       const notFound = {
         en: `😅 No results near "${areaText}". Try another area!`,
