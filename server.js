@@ -35,7 +35,6 @@ import {
 
 import {
   MAP_LINK,
-  MAP_INTRO,
   getWeeklyCurationMessage,
   getServiceMessage,
   getAdMessage,
@@ -146,37 +145,35 @@ function hasExplicitCategory(text = '', routeSearchType = '') {
   return categoryWords.some((w) => t.includes(w));
 }
 
-function isPrayerRequest(text = '') {
+// 숫자 제거: 숫자는 server.js에서만 처리
+function isPrayerKeyword(text = '') {
   const t = text.trim().toLowerCase();
   const keywords = [
-    '3',
     'prayer', 'prayer room', 'mosque', 'masjid', 'tempat sholat',
     'shalat', 'musholla', 'musolla',
     '기도', '기도실', '모스크',
   ];
-  return keywords.some((k) => t === k || t.includes(k));
+  return keywords.some((k) => t.includes(k));
 }
 
-function isHalalRequest(text = '') {
+function isHalalKeyword(text = '') {
   const t = text.trim().toLowerCase();
   const keywords = [
-    '2',
     'halal', 'halal food', 'halal restaurant',
     'makanan halal', 'restoran halal',
     '할랄', '할랄 음식', '할랄 식당',
   ];
-  return keywords.some((k) => t === k || t.includes(k));
+  return keywords.some((k) => t.includes(k));
 }
 
-function isShoppingRequest(text = '') {
+function isShoppingKeyword(text = '') {
   const t = text.trim().toLowerCase();
   const keywords = [
-    '5',
     'shopping', 'discount', 'sale', 'tax free', 'cosmetics',
     'belanja', 'diskon',
     '쇼핑', '할인', '면세',
   ];
-  return keywords.some((k) => t === k || t.includes(k));
+  return keywords.some((k) => t.includes(k));
 }
 
 function isMenuRequest(text = '') {
@@ -191,27 +188,27 @@ function isMenuRequest(text = '') {
 
 function isServiceMenuRequest(text = '') {
   const t = text.trim().toLowerCase();
-  return t === '6' || t.includes('service') || t.includes('layanan') || t.includes('서비스');
+  return t.includes('service') || t.includes('layanan') || t.includes('서비스');
 }
 
 function isVisaRequest(text = '') {
   const t = text.trim().toLowerCase();
-  return t === '7' || t.includes('visa') || t.includes('extension') || t.includes('visa extension') || t.includes('perpanjang visa') || t.includes('비자');
+  return t.includes('visa') || t.includes('extension') || t.includes('visa extension') || t.includes('perpanjang visa') || t.includes('비자');
 }
 
 function isJobRequest(text = '') {
   const t = text.trim().toLowerCase();
-  return t === '8' || t.includes('job') || t.includes('work') || t.includes('recruit') || t.includes('lowongan') || t.includes('kerja') || t.includes('직업') || t.includes('구인');
+  return t.includes('job') || t.includes('work') || t.includes('recruit') || t.includes('lowongan') || t.includes('kerja') || t.includes('직업') || t.includes('구인');
 }
 
 function isDeliveryRequest(text = '') {
   const t = text.trim().toLowerCase();
-  return t === '9' || t.includes('delivery') || t.includes('send package') || t.includes('barang') || t.includes('courier') || t.includes('물품') || t.includes('배달');
+  return t.includes('delivery') || t.includes('send package') || t.includes('barang') || t.includes('courier') || t.includes('물품') || t.includes('배달');
 }
 
 function isGuideRequest(text = '') {
   const t = text.trim().toLowerCase();
-  return t === '10' || t.includes('guide') || t.includes('day guide') || t.includes('tour guide') || t.includes('pendamping') || t.includes('가이드');
+  return t.includes('guide') || t.includes('day guide') || t.includes('tour guide') || t.includes('pendamping') || t.includes('가이드');
 }
 
 const ASK_LOCATION = {
@@ -457,7 +454,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 1. map only
+      // 숫자 메뉴 처리
       if (lowered === '1') {
         await replyMessage(
           event.replyToken,
@@ -468,8 +465,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 2. halal
-      if (lowered === '2' || isHalalRequest(userText)) {
+      if (lowered === '2') {
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
           continue;
@@ -490,15 +486,11 @@ app.post('/webhook', async (req, res) => {
         }
 
         setState(userId, 'awaiting_location_halal');
-        await replyMessage(
-          event.replyToken,
-          ASK_LOCATION[lang] || ASK_LOCATION.en
-        );
+        await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
         continue;
       }
 
-      // 3. prayer / mosque
-      if (lowered === '3' || isPrayerRequest(userText)) {
+      if (lowered === '3') {
         setState(userId, 'awaiting_location_prayer');
         await replyMessage(
           event.replyToken,
@@ -508,11 +500,98 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 4. events
-      if (lowered === '4' || isEventRequest(userText)) {
+      if (lowered === '4') {
         const curated = getWeeklyCurationMessage(lang);
         const adText = getAdMessage(lang, 'events');
         await replyMessage(event.replyToken, curated, adText, buildMoreEventsPrompt(lang));
+        continue;
+      }
+
+      if (lowered === '5') {
+        await replyMessage(
+          event.replyToken,
+          getServiceMessage('shopping', lang),
+          getAdMessage(lang, 'shopping')
+        );
+        continue;
+      }
+
+      if (lowered === '6') {
+        await replyMessage(event.replyToken, getServiceMenuMessage(lang));
+        continue;
+      }
+
+      if (lowered === '7') {
+        await replyMessage(event.replyToken, getServiceMessage('visa', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'visa');
+        continue;
+      }
+
+      if (lowered === '8') {
+        await replyMessage(event.replyToken, getServiceMessage('jobs', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'jobs');
+        continue;
+      }
+
+      if (lowered === '9') {
+        await replyMessage(event.replyToken, getServiceMessage('delivery', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'delivery');
+        continue;
+      }
+
+      if (lowered === '10') {
+        await replyMessage(event.replyToken, getServiceMessage('guide', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'guide');
+        continue;
+      }
+
+      if (lowered === '0') {
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
+        continue;
+      }
+
+      // 키워드 처리
+      if (isHalalKeyword(userText)) {
+        if (savedLocation?.address) {
+          await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
+          continue;
+        }
+
+        if (savedLocation?.lat && savedLocation?.lng) {
+          const results = await searchNearby(savedLocation.lat, savedLocation.lng, 'halal');
+          if (results) {
+            const labelObj = TYPE_LABEL.halal || TYPE_LABEL.restaurant;
+            const label = labelObj[lang] || labelObj.en;
+            await replyMessage(
+              event.replyToken,
+              `${label} nearby:\n\n${results}`,
+              MAP_GUIDE[lang] || MAP_GUIDE.en
+            );
+            continue;
+          }
+        }
+
+        setState(userId, 'awaiting_location_halal');
+        await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
+        continue;
+      }
+
+      if (isPrayerKeyword(userText)) {
+        setState(userId, 'awaiting_location_prayer');
+        await replyMessage(
+          event.replyToken,
+          getServiceMessage('prayer', lang),
+          ASK_LOCATION[lang] || ASK_LOCATION.en
+        );
+        continue;
+      }
+
+      if (isShoppingKeyword(userText)) {
+        await replyMessage(
+          event.replyToken,
+          getServiceMessage('shopping', lang),
+          getAdMessage(lang, 'shopping')
+        );
         continue;
       }
 
@@ -531,52 +610,36 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 5. shopping
-      if (lowered === '5' || isShoppingRequest(userText)) {
-        await replyMessage(
-          event.replyToken,
-          getServiceMessage('shopping', lang),
-          getAdMessage(lang, 'shopping')
-        );
-        continue;
-      }
-
-      // 6. more services
-      if (lowered === '6' || isServiceMenuRequest(userText)) {
+      if (isServiceMenuRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMenuMessage(lang));
         continue;
       }
 
-      // 7. visa
       if (isVisaRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('visa', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'visa');
         continue;
       }
 
-      // 8. jobs
       if (isJobRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('jobs', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'jobs');
         continue;
       }
 
-      // 9. delivery
       if (isDeliveryRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('delivery', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'delivery');
         continue;
       }
 
-      // 10. guide
       if (isGuideRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('guide', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'guide');
         continue;
       }
 
-      // 0. human
-      if (lowered === '0' || isHumanRequest(userText)) {
+      if (isHumanRequest(userText)) {
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
         continue;
       }
@@ -584,8 +647,8 @@ app.post('/webhook', async (req, res) => {
       if (currentState === 'awaiting_category') {
         let searchType = getSafeSearchType(detectSearchType(userText));
 
-        if (isPrayerRequest(userText)) searchType = 'halal';
-        if (isHalalRequest(userText)) searchType = 'halal';
+        if (isPrayerKeyword(userText)) searchType = 'halal';
+        if (isHalalKeyword(userText)) searchType = 'halal';
 
         setState(userId, null);
         const loc = getLocation(userId);
@@ -612,8 +675,8 @@ app.post('/webhook', async (req, res) => {
         const detectedLocation = currentState.replace('has_location:', '');
         let searchType = getSafeSearchType(detectSearchType(userText));
 
-        if (isPrayerRequest(userText)) searchType = 'halal';
-        if (isHalalRequest(userText)) searchType = 'halal';
+        if (isPrayerKeyword(userText)) searchType = 'halal';
+        if (isHalalKeyword(userText)) searchType = 'halal';
 
         setState(userId, null);
         await handleSearch(event.replyToken, detectedLocation, searchType, lang, userText);
@@ -623,8 +686,8 @@ app.post('/webhook', async (req, res) => {
       if (currentState && currentState.startsWith('awaiting_location')) {
         if (isCategoryOnly(userText)) {
           let newSearchType = getSafeSearchType(detectSearchType(userText));
-          if (isPrayerRequest(userText)) newSearchType = 'halal';
-          if (isHalalRequest(userText)) newSearchType = 'halal';
+          if (isPrayerKeyword(userText)) newSearchType = 'halal';
+          if (isHalalKeyword(userText)) newSearchType = 'halal';
 
           setState(userId, `awaiting_location_${newSearchType}`);
           await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
@@ -649,8 +712,8 @@ app.post('/webhook', async (req, res) => {
 
       if (savedLocation && isCategoryOnly(userText)) {
         let searchType = getSafeSearchType(detectSearchType(userText));
-        if (isPrayerRequest(userText)) searchType = 'halal';
-        if (isHalalRequest(userText)) searchType = 'halal';
+        if (isPrayerKeyword(userText)) searchType = 'halal';
+        if (isHalalKeyword(userText)) searchType = 'halal';
 
         if (savedLocation.address) {
           await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
