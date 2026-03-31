@@ -1,10 +1,8 @@
 const AREA_CODE = {
-  // 한글
   '서울': '1', '인천': '2', '대전': '3', '대구': '4',
   '광주': '5', '부산': '6', '울산': '7', '세종': '8',
   '경기': '31', '강원': '32', '충북': '33', '충남': '34',
   '경북': '35', '경남': '36', '전북': '37', '전남': '38', '제주': '39',
-  // 영어
   'seoul': '1', 'incheon': '2', 'daejeon': '3', 'daegu': '4',
   'gwangju': '5', 'busan': '6', 'ulsan': '7', 'sejong': '8',
   'gyeonggi': '31', 'gangwon': '32', 'chungbuk': '33', 'chungnam': '34',
@@ -61,10 +59,9 @@ function buildFestivalUrl(apiKey, today, areaCode = null) {
 
 async function fetchEvents(apiKey, today, areaCode = null) {
   const url = buildFestivalUrl(apiKey, today, areaCode);
-  console.log('Event search URL:', url.toString());
   const response = await fetch(url.toString());
-  console.log('Event API status:', response.status);
   if (!response.ok) return null;
+
   const data = await response.json();
   const items = data?.response?.body?.items?.item;
   if (!items || items.length === 0) return null;
@@ -76,45 +73,42 @@ function formatEventList(list) {
     const name = item.title || '이름 없음';
     const place = item.addr1 || '장소 미정';
     const start = item.eventstartdate
-      ? item.eventstartdate.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3') : '';
+      ? item.eventstartdate.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3')
+      : '';
     const end = item.eventenddate
-      ? item.eventenddate.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3') : '';
+      ? item.eventenddate.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3')
+      : '';
     const mapLink = `https://map.kakao.com/link/search/${encodeURIComponent(name)}`;
-    return `${i + 1}. ${name}\n   📍 ${place}\n   📅 ${start}${end ? ' ~ ' + end : ''}\n   🗺️ ${mapLink}`;
+
+    return `${i + 1}. ${name}\n   📍 ${place}\n   📅 ${start}${end ? ` ~ ${end}` : ''}\n   🗺️ ${mapLink}`;
   }).join('\n\n');
 }
 
 function formatHeader(areaName, lang) {
   const headers = {
-    en: `🎭 Events in ${areaName} today:\n\n`,
-    vi: `🎭 Sự kiện tại ${areaName} hôm nay:\n\n`,
-    id: `🎭 Acara di ${areaName} hari ini:\n\n`,
-    mn: `🎭 ${areaName} дахь өнөөдрийн арга хэмжээ:\n\n`,
+    en: `🎭 More event results in ${areaName}:\n\n`,
+    id: `🎭 Hasil event tambahan di ${areaName}:\n\n`,
   };
   return headers[lang] || headers.en;
 }
 
 function formatNoLocal(areaName, lang) {
   const msgs = {
-    en: `ℹ️ No events found in ${areaName} today. Here are events happening elsewhere in Korea:\n\n`,
-    vi: `ℹ️ Không có sự kiện tại ${areaName} hôm nay. Đây là các sự kiện ở nơi khác:\n\n`,
-    id: `ℹ️ Tidak ada acara di ${areaName} hari ini. Berikut acara di tempat lain:\n\n`,
-    mn: `ℹ️ ${areaName}-д өнөөдөр арга хэмжээ байхгүй. Өөр газрын арга хэмжээнүүд:\n\n`,
+    en: `ℹ️ I couldn't find more events in ${areaName}. Here are events elsewhere in Korea:\n\n`,
+    id: `ℹ️ Saya belum menemukan event tambahan di ${areaName}. Berikut event di area lain di Korea:\n\n`,
   };
   return msgs[lang] || msgs.en;
 }
 
 function formatNoResult(lang) {
   const msgs = {
-    en: `😅 No events found in Korea today. Try again tomorrow!`,
-    vi: `😅 Không tìm thấy sự kiện nào ở Hàn Quốc hôm nay. Thử lại ngày mai nhé!`,
-    id: `😅 Tidak ada acara di Korea hari ini. Coba lagi besok!`,
-    mn: `😅 Өнөөдөр Солонгост арга хэмжээ олдсонгүй. Маргааш дахин үзнэ үү!`,
+    en: '😅 No event results found right now. Please check our curated map updates first.',
+    id: '😅 Belum ada hasil event tambahan saat ini. Silakan cek update curated map kami dulu.',
   };
   return msgs[lang] || msgs.en;
 }
 
-export async function searchEvents(userText, lang) {
+export async function searchEvents(userText, lang = 'en') {
   const TOUR_API_KEY = process.env.TOUR_API_KEY;
   if (!TOUR_API_KEY) return null;
 
@@ -126,11 +120,12 @@ export async function searchEvents(userText, lang) {
     if (items) {
       return formatHeader(area.name, lang) + formatEventList(items);
     }
-    console.log(`No events in ${area.name}, retrying nationwide`);
+
     const nationwideItems = await fetchEvents(TOUR_API_KEY, today);
     if (nationwideItems) {
       return formatNoLocal(area.name, lang) + formatEventList(nationwideItems);
     }
+
     return formatNoResult(lang);
   }
 
@@ -138,5 +133,6 @@ export async function searchEvents(userText, lang) {
   if (items) {
     return formatHeader('Korea', lang) + formatEventList(items);
   }
+
   return formatNoResult(lang);
 }
