@@ -25,28 +25,61 @@ const auth = new google.auth.GoogleAuth({
 
 let cache = [];
 
-function parseTags(value = '') {
+function parseList(value = '') {
+  return String(value)
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+function parseListLower(value = '') {
   return String(value)
     .split(',')
     .map((v) => v.trim().toLowerCase())
     .filter(Boolean);
 }
 
+function toNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function toBoolean(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return v === 'true' || v === '1' || v === 'yes';
+}
+
 function normalizePlace(obj = {}) {
   return {
     name: obj.name || '',
-    area: parseTags(obj.area),
-    category: parseTags(obj.category),
+    area: parseListLower(obj.area),
+    category: parseListLower(obj.category),
     address: obj.address || '',
     info: obj.info || '',
     mapLink: obj.mapLink || '',
-    rating: Number(obj.rating || 0),
-    isActive: String(obj.isActive || '').toUpperCase() === 'TRUE',
-    priority: Number(obj.priority || 999),
-    language: parseTags(obj.language),
+    rating: toNumber(obj.rating, 0),
+    isActive: toBoolean(obj.isActive),
+    priority: toNumber(obj.priority, 999),
+    language: parseListLower(obj.language),
     priceLevel: obj.priceLevel || '',
-    tags: parseTags(obj.tags),
+    tags: parseListLower(obj.tags),
+
+    // 확장 컬럼
+    sourceName: obj.sourceName || '',
+    sourceTrust: String(obj.sourceTrust || '').trim().toLowerCase(),
+    muslimCategory: String(obj.muslimCategory || '').trim().toLowerCase(),
+    halalFeatures: parseListLower(obj.halalFeatures),
+    verificationNote: obj.verificationNote || '',
+    lastChecked: obj.lastChecked || '',
   };
+}
+
+function mapRowToObject(headers = [], row = []) {
+  const obj = {};
+  headers.forEach((header, idx) => {
+    obj[String(header || '').trim()] = row[idx] || '';
+  });
+  return obj;
 }
 
 export async function loadSheetsData() {
@@ -61,7 +94,7 @@ export async function loadSheetsData() {
 
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A1:L`,
+    range: `${SHEET_NAME}!A:Z`,
   });
 
   const rows = res.data.values || [];
@@ -76,42 +109,119 @@ export async function loadSheetsData() {
 
   cache = rows
     .slice(1)
-    .map((row) => {
-      const obj = {};
-      headers.forEach((h, i) => {
-        obj[h] = row[i] || '';
-      });
-      return normalizePlace(obj);
-    })
-    .filter((p) => p.isActive)
-    .sort((a, b) => a.priority - b.priority);
+    .map((row) => mapRowToObject(headers, row))
+    .map((obj) => normalizePlace(obj))
+    .filter((p) => p.name && p.isActive)
+    .sort((a, b) => {
+      if (a.priority !== b.priority) return a.priority - b.priority;
+      return b.rating - a.rating;
+    });
 
   console.log(`[Sheets] Loaded ${cache.length} places`);
   return cache;
 }
 
-export function getPlacesFromSheets({ area = '', category = '', language = '' } = {}) {
+export function getAllPlacesFromSheets() {
+  return cache;
+}
+
+export function getPlacesFromSheets({
+  area = '',
+  categories = [],
+  language = '',
+  searchType = '',
+} = {}) {
   const areaKey = String(area || '').trim().toLowerCase();
-  const categoryKey = String(category || '').trim().toLowerCase();
   const languageKey = String(language || '').trim().toLowerCase();
+  const categoryKeys = (categories || []).map((v) => String(v).trim().toLowerCase()).filter(Boolean);
+  const typeKey = String(searchType || '').trim().toLowerCase();
 
   return cache.filter((p) => {
-    if (areaKey && !p.area.includes(areaKey)) return false;
-    if (categoryKey && !p.category.includes(categoryKey)) return false;
-    if (languageKey && p.language.length > 0 && !p.language.includes(languageKey)) return false;
+    if (areaKey) {
+      const areaMatched =
+        p.area.includes(areaKey) ||
+        p.address.toLowerCase().includes(areaKey) ||
+        p.tags.some((tag) => tag.includes(areaKey) || areaKey.includes(tag));
+
+      if (!areaMatched) return false;
+    }
+
+    if (languageKey && p.language.length > 0 && !p.language.includes(languageKey)) {
+      return false;
+    }
+
+    if (categoryKeys.length > 0) {
+      const categoryMatched =
+        p.category.some((c) => categoryKeys.includes(c)) ||
+        categoryKeys.includes(p.muslimCategory);
+
+      if (!categoryMatched) return false;
+    }
+
+    if (typeKey === 'halal') {
+      const halalMatched =
+        p.category.includes('halal-restaurant') ||
+        p.category.includes('muslim-friendly') ||
+        p.category.includes('pork-free') ||
+        p.muslimCategory === 'halal-certified' ||
+        p.muslimCategory === 'self-certified' ||
+        p.muslimCategory === 'muslim-friendly' ||
+        p.muslimCategory === 'pork-free' ||
+        p.tags.includes('halal') ||
+        p.tags.includes('halal-menu') ||
+        p.tags.includes('pork-free') ||
+        p.halalFeatures.includes('halal-menu') ||
+        p.halalFeatures.includes('pork-free');
+
+      if (!halalMatched) return false;
+    }
+
+    if (typeKey === 'prayer') {
+      const prayerMatched =
+        p.category.includes('masjid') ||
+        p.category.includes('prayer-room') ||
+        p.tags.includes('masjid') ||
+        p.tags.includes('prayer') ||
+        p.tags.includes('prayer-room') ||
+        p.halalFeatures.includes('prayer-room') ||
+        p.halalFeatures.includes('prayer-room-possible');
+
+      if (!prayerMatched) return false;
+    }
+
     return true;
   });
 }
 
-export function formatSheetPlaces(places = []) {
+export function formatSheetPlaces(places = [], options = {}) {
+  const {
+    limit = 3,
+    showMeta = false,
+  } = options;
+
   return places
-    .map(
-      (p, i) =>
-        `${i + 1}. ${p.name}\n` +
-        `   📍 ${p.address || 'No address'}\n` +
-        `   ℹ️ ${p.info || 'No description'}\n` +
-        `   🗺️ ${p.mapLink || 'No map link'}`
-    )
+    .slice(0, limit)
+    .map((p, i) => {
+      const lines = [
+        `${i + 1}. ${p.name}`,
+        `   📍 ${p.address || 'No address'}`,
+        `   ℹ️ ${p.info || 'No description'}`,
+      ];
+
+      if (showMeta) {
+        const meta = [
+          p.muslimCategory,
+          ...(p.halalFeatures || []).slice(0, 3),
+        ].filter(Boolean);
+
+        if (meta.length) {
+          lines.push(`   ✅ ${meta.join(' · ')}`);
+        }
+      }
+
+      lines.push(`   🗺️ ${p.mapLink || 'No map link'}`);
+      return lines.join('\n');
+    })
     .join('\n\n');
 }
 
