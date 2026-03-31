@@ -1,4 +1,10 @@
-export const MAP_LINK = 'https://www.google.com/maps/d/u/0/viewer?mid=1Hh1Cm8MlGjqKsI8Ok60UQeiY0mOB0mo&ll=37.524909532129115%2C127.22392225000002&z=11';
+export const MAP_LINK =
+  'https://www.google.com/maps/d/u/0/viewer?mid=1Hh1Cm8MlGjqKsI8Ok60UQeiY0mOB0mo&ll=37.524909532129115%2C127.22392225000002&z=11';
+
+export const MAP_INTRO = {
+  id: '🗺️ Ini peta khusus VirtualButler Korea untuk wisatawan Muslim.\nRestoran halal, masjid, musholla, spot belanja, event, dan info pilihan kami ada di sini 👇',
+  en: '🗺️ This is the special VirtualButler Korea map for Muslim travelers.\nHalal restaurants, mosques, prayer rooms, shopping spots, events, and our curated updates are all here 👇',
+};
 
 export const WEEKLY_CURATION = {
   week: '2026-03-31',
@@ -8,14 +14,10 @@ export const WEEKLY_CURATION = {
       title: {
         id: 'Festival Bunga Sakura di Yeouido!',
         en: 'Cherry Blossom Festival at Yeouido!',
-        vi: 'Lễ hội hoa anh đào tại Yeouido!',
-        mn: 'Яёүидо дахь интоорын цэцгийн наадам!',
       },
       detail: {
-        id: '📍 Yeouido Hangang Park\n📅 1-10 April 2026\n✨ Spot foto terbaik Seoul minggu ini!',
-        en: '📍 Yeouido Hangang Park\n📅 April 1-10, 2026\n✨ Best photo spot in Seoul this week!',
-        vi: '📍 Công viên Yeouido Hangang\n📅 1-10/4/2026\n✨ Điểm chụp ảnh đẹp nhất Seoul tuần này!',
-        mn: '📍 Яёүидо Хангангийн цэцэрлэгт хүрээлэн\n📅 2026.04.01-10\n✨ Энэ долоо хоногийн хамгийн сайн фото спот!',
+        id: '📍 Yeouido Hangang Park\n📅 1-10 April 2026\n✨ Spot foto terbaik minggu ini',
+        en: '📍 Yeouido Hangang Park\n📅 April 1-10, 2026\n✨ Best photo spot this week',
       },
       mapLink: 'https://map.kakao.com/link/search/여의도한강공원',
     },
@@ -24,46 +26,183 @@ export const WEEKLY_CURATION = {
       title: {
         id: 'K-POP Street Performance di Hongdae!',
         en: 'K-POP Street Performance at Hongdae!',
-        vi: 'Biểu diễn K-POP đường phố tại Hongdae!',
-        mn: 'Хондэд K-POP гудамжны тоглолт!',
       },
       detail: {
-        id: '📍 Hongdae Walking Street\n📅 Setiap Sabtu & Minggu, 14:00-18:00\n🎫 GRATIS! Datang lebih awal untuk tempat terbaik',
-        en: '📍 Hongdae Walking Street\n📅 Every Sat & Sun, 2PM-6PM\n🎫 FREE! Come early for the best spot',
-        vi: '📍 Phố đi bộ Hongdae\n📅 Thứ 7 & CN hàng tuần, 14:00-18:00\n🎫 MIỄN PHÍ! Đến sớm để có chỗ tốt',
-        mn: '📍 Хондэ явган хүний гудамж\n📅 Бүр Бямба & Ням, 14:00-18:00\n🎫 ҮНЭГҮЙ! Сайн газар эзлэхийн тулд эрт ир',
+        id: '📍 Hongdae Walking Street\n📅 Sabtu & Minggu, 14:00-18:00\n🎫 Gratis',
+        en: '📍 Hongdae Walking Street\n📅 Sat & Sun, 2PM-6PM\n🎫 Free',
       },
       mapLink: 'https://map.kakao.com/link/search/홍대걷고싶은거리',
     },
     {
       emoji: '🛍️',
       title: {
-        id: 'Diskon K-Beauty di Myeongdong minggu ini!',
-        en: 'K-Beauty Discounts in Myeongdong this week!',
-        vi: 'Giảm giá K-Beauty tại Myeongdong tuần này!',
-        mn: 'Энэ долоо хоногт Мёндонд K-Beauty хямдрал!',
+        id: 'Promo K-Beauty minggu ini di Myeongdong!',
+        en: 'K-Beauty deals in Myeongdong this week!',
       },
       detail: {
-        id: '📍 Myeongdong, Seoul\n🏷️ Olive Young, Innisfree, Etude: diskon hingga 50%\n📅 Sampai 7 April 2026',
-        en: '📍 Myeongdong, Seoul\n🏷️ Olive Young, Innisfree, Etude: up to 50% off\n📅 Until April 7, 2026',
-        vi: '📍 Myeongdong, Seoul\n🏷️ Olive Young, Innisfree, Etude: giảm đến 50%\n📅 Đến ngày 7/4/2026',
-        mn: '📍 Мёнгдон, Сеул\n🏷️ Olive Young, Innisfree, Etude: 50% хүртэл хямдарна\n📅 2026.04.07 хүртэл',
+        id: '📍 Myeongdong\n🏷️ Olive Young / Innisfree / Etude promo\n📅 Sampai 7 April',
+        en: '📍 Myeongdong\n🏷️ Olive Young / Innisfree / Etude deals\n📅 Until April 7',
       },
       mapLink: 'https://map.kakao.com/link/search/명동',
     },
   ],
 };
 
-export const MAP_INTRO = {
-  id: '🗺️ Ini peta khusus VirtualButler Korea untuk wisatawan Muslim!\nRestoran halal, masjid, musholla & tempat wisata K-drama semuanya ada 👇',
-  en: '🗺️ Here\'s our special VirtualButler Korea map for Muslim tourists!\nHalal restaurants, mosques, prayer rooms & K-drama spots all in one 👇',
-  vi: '🗺️ Đây là bản đồ đặc biệt của VirtualButler Korea cho du khách Hồi giáo!\nNhà hàng halal, nhà thờ, phòng cầu nguyện & địa điểm K-drama 👇',
-  mn: '🗺️ Энэ бол VirtualButler Korea-ийн Мусульман жуулчдад зориулсан онцгой газрын зураг!\nХалал ресторан, мечет, залбирлын өрөө & K-драмын газрууд 👇',
+export const SERVICE_CATALOG = {
+  prayer: {
+    en: `🕌 Prayer support
+
+Use our map to check mosques and prayer rooms first:
+${MAP_LINK}
+
+Tell me your area and I’ll help you narrow it down.`,
+    id: `🕌 Bantuan tempat sholat
+
+Gunakan map kami untuk cek masjid dan musholla:
+${MAP_LINK}
+
+Kasih tahu area kamu dan saya bantu cari yang lebih dekat.`,
+  },
+  shopping: {
+    en: `🛍️ Shopping & deals
+
+We can highlight:
+• tax-free beauty shops
+• Muslim-friendly shopping areas
+• curated discount spots from our map updates
+
+Popular areas:
+• Myeongdong
+• Dongdaemun
+• Hongdae`,
+    id: `🛍️ Shopping & promo
+
+Kami bisa bantu tampilkan:
+• toko tax-free
+• area belanja ramah Muslim
+• spot promo pilihan dari update map kami
+
+Area populer:
+• Myeongdong
+• Dongdaemun
+• Hongdae`,
+  },
+  visa: {
+    en: `🛂 Visa extension support
+
+We can connect you with our team for:
+• visa extension guidance
+• required documents
+• basic consultation flow
+
+Please send your nationality and current visa type if you know it.`,
+    id: `🛂 Bantuan perpanjangan visa
+
+Kami bisa hubungkan kamu ke tim kami untuk:
+• panduan perpanjangan visa
+• dokumen yang dibutuhkan
+• alur konsultasi awal
+
+Kalau tahu, kirim juga kewarganegaraan dan jenis visa kamu sekarang.`,
+  },
+  jobs: {
+    en: `💼 Job introduction support
+
+We can connect you for:
+• basic job matching
+• part-time / full-time opportunities
+• language or service roles
+
+Please tell us your Korean level, visa type, and work preference.`,
+    id: `💼 Bantuan job introduction
+
+Kami bisa bantu hubungkan untuk:
+• pencocokan kerja dasar
+• peluang part-time / full-time
+• pekerjaan service / bahasa
+
+Tolong kasih tahu level bahasa Korea, jenis visa, dan preferensi kerja kamu.`,
+  },
+  delivery: {
+    en: `📦 Delivery support
+
+We can help connect you for:
+• local item delivery
+• errand / pickup requests
+• simple same-day coordination
+
+Please tell us what item, pickup area, and destination area.`,
+    id: `📦 Bantuan delivery
+
+Kami bisa bantu hubungkan untuk:
+• pengantaran barang lokal
+• titip beli / pickup
+• koordinasi sederhana di hari yang sama
+
+Tolong kirim jenis barang, area ambil, dan area tujuan.`,
+  },
+  guide: {
+    en: `🧑‍🤝‍🧑 One-day guide support
+
+We can help connect you for:
+• Muslim-friendly day guide
+• shopping companion
+• translation support
+• local route assistance
+
+Please tell us your date, area, and what kind of help you want.`,
+    id: `🧑‍🤝‍🧑 Bantuan one-day guide
+
+Kami bisa bantu hubungkan untuk:
+• guide harian ramah Muslim
+• teman shopping
+• bantuan terjemahan
+• bantuan rute lokal
+
+Tolong kirim tanggal, area, dan bantuan yang kamu butuhkan.`,
+  },
 };
 
-export const EMERGENCY_GUIDE = {
-  id: '🚨 Ada masalah darurat?\nKetik "bantuan" atau "tolong" → asisten kami akan langsung membantu!',
-  en: '🚨 Having an emergency?\nType "help me" → our human assistant will connect with you directly!',
-  vi: '🚨 Có vấn đề khẩn cấp?\nGõ "giúp tôi" → trợ lý của chúng tôi sẽ kết nối ngay!',
-  mn: '🚨 Яаралтай асуудал гарсан уу?\n"Тусламж" гэж бичнэ үү → манай туслах шууд холбогдоно!',
+export const AD_SLOTS = {
+  main: {
+    en: '📢 Featured on our map: Muslim-friendly restaurants, beauty shops, and trusted local partners can be highlighted here.',
+    id: '📢 Unggulan di map kami: restoran ramah Muslim, toko kecantikan, dan partner lokal terpercaya bisa ditampilkan di sini.',
+  },
+  shopping: {
+    en: '📢 Promotion slot: tax-free shops, beauty deals, and local partner offers can be added here.',
+    id: '📢 Slot promo: toko tax-free, promo beauty, dan penawaran partner lokal bisa ditambahkan di sini.',
+  },
+  events: {
+    en: '📢 Event partner slot: pop-ups, performances, and local events can be promoted through our weekly map update.',
+    id: '📢 Slot partner event: pop-up, performance, dan event lokal bisa dipromosikan lewat update map mingguan kami.',
+  },
 };
+
+export function getWeeklyCurationMessage(lang = 'en') {
+  const header = {
+    en: `✨ This week's curated picks (${WEEKLY_CURATION.week})`,
+    id: `✨ Pilihan curated minggu ini (${WEEKLY_CURATION.week})`,
+  };
+
+  const items = WEEKLY_CURATION.items
+    .map((item) => {
+      const title = item.title[lang] || item.title.en;
+      const detail = item.detail[lang] || item.detail.en;
+      return `${item.emoji} ${title}\n${detail}\n🗺️ ${item.mapLink}`;
+    })
+    .join('\n\n');
+
+  return [header[lang] || header.en, '', items].join('\n');
+}
+
+export function getServiceMessage(serviceKey, lang = 'en') {
+  const item = SERVICE_CATALOG[serviceKey];
+  if (!item) return '';
+  return item[lang] || item.en;
+}
+
+export function getAdMessage(lang = 'en', slot = 'main') {
+  const item = AD_SLOTS[slot];
+  if (!item) return '';
+  return item[lang] || item.en;
+}
