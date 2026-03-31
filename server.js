@@ -278,6 +278,17 @@ app.get('/', (req, res) => {
   res.status(200).send('VirtualButler.Korea is running');
 });
 
+// 수동 시트 새로고침용
+app.get('/admin/refresh-sheets', async (req, res) => {
+  try {
+    await refreshSheetsData();
+    res.status(200).json({ ok: true, message: 'Sheets refreshed successfully' });
+  } catch (err) {
+    console.error('[Sheets] Manual refresh failed:', err.message);
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
 app.post('/webhook', async (req, res) => {
   console.log('Webhook received:', new Date().toISOString());
 
@@ -712,7 +723,7 @@ app.post('/webhook', async (req, res) => {
           continue;
         }
 
-        let savedType = currentState.replace('awaiting_location_', '');
+        const savedType = currentState.replace('awaiting_location_', '');
         const searchType = getSafeSearchType(savedType || detectSearchType(userText));
 
         setState(userId, null);
