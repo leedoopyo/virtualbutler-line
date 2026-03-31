@@ -1,4 +1,4 @@
-import { MAP_LINK, MAP_INTRO, EMERGENCY_GUIDE, WEEKLY_CURATION } from './curation.js';
+import { MAP_LINK, MAP_INTRO } from './curation.js';
 
 export function normalizeLanguageChoice(text = '') {
   const t = text.trim().toLowerCase();
@@ -18,34 +18,71 @@ export function languageSelectionMessage() {
   ].join('\n');
 }
 
-export function welcomeMessage(lang) {
-  const greetings = {
-    en: '🇰🇷 Hello! Welcome to VirtualButler Korea!\n\nI\'ll be your faithful travel companion throughout your stay in Korea 🤝\nHalal food, attractions, K-pop info, emergencies — just ask me anything!',
-    id: '🇰🇷 Halo! Selamat datang di VirtualButler Korea!\n\nSaya akan menjadi teman perjalanan setia Anda selama di Korea 🤝\nRestoran halal, tempat wisata, info K-pop, hingga darurat — semua bisa tanya saya!',
-  };
-
-  const curationHeader = {
-    en: '✨ This week\'s highlights:',
-    id: '✨ Highlight minggu ini:',
-  };
-
-  const curationItems = WEEKLY_CURATION.items.map(item => {
-    const title = item.title[lang] || item.title.en;
-    const detail = item.detail[lang] || item.detail.en;
-    return `${item.emoji} ${title}\n${detail}\n🗺️ ${item.mapLink}`;
-  }).join('\n\n');
-
+export function getMapWelcomeMessage(lang = 'en') {
   return [
-    greetings[lang] || greetings.en,
-    '',
-    '─────────────────',
     MAP_INTRO[lang] || MAP_INTRO.en,
     MAP_LINK,
-    '─────────────────',
-    curationHeader[lang] || curationHeader.en,
-    '',
-    curationItems,
-    '─────────────────',
-    EMERGENCY_GUIDE[lang] || EMERGENCY_GUIDE.en,
   ].join('\n');
+}
+
+export function getMainMenuMessage(lang = 'en') {
+  const menus = {
+    en: `━━━━━━━━━━━━━━━
+What do you need now?
+
+1️⃣ Open our map
+2️⃣ Halal food near me
+3️⃣ Prayer room / Mosque
+4️⃣ Weekly events & things to do
+5️⃣ Shopping / deals
+6️⃣ More services
+7️⃣ Visa extension
+8️⃣ Job introduction
+9️⃣ Delivery service
+🔟 One-day guide
+0️⃣ Talk to our team
+
+(Type a number or just tell me your need)`,
+
+    id: `━━━━━━━━━━━━━━━
+Kamu butuh apa sekarang?
+
+1️⃣ Buka map kami
+2️⃣ Makanan halal dekat sini
+3️⃣ Tempat sholat / Masjid
+4️⃣ Event mingguan & tempat seru
+5️⃣ Shopping / promo
+6️⃣ Layanan lainnya
+7️⃣ Perpanjangan visa
+8️⃣ Job introduction
+9️⃣ Delivery service
+🔟 One-day guide
+0️⃣ Hubungi tim kami
+
+(Ketik angka atau langsung tulis kebutuhan kamu)`,
+  };
+
+  return menus[lang] || menus.en;
+}
+
+export function getServiceMenuMessage(lang = 'en') {
+  const menus = {
+    en: `🧩 More services
+
+7️⃣ Visa extension
+8️⃣ Job introduction
+9️⃣ Delivery service
+🔟 One-day guide
+0️⃣ Talk to our team`,
+
+    id: `🧩 Layanan tambahan
+
+7️⃣ Perpanjangan visa
+8️⃣ Job introduction
+9️⃣ Delivery service
+🔟 One-day guide
+0️⃣ Hubungi tim kami`,
+  };
+
+  return menus[lang] || menus.en;
 }
