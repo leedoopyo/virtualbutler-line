@@ -2,8 +2,23 @@ import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 
-import { getSession, setSession, getLocation, setLocation, getState, setState } from './src/session.js';
-import { normalizeLanguageChoice, languageSelectionMessage, welcomeMessage } from './src/language.js';
+import {
+  getSession,
+  setSession,
+  getLocation,
+  setLocation,
+  getState,
+  setState,
+} from './src/session.js';
+
+import {
+  normalizeLanguageChoice,
+  languageSelectionMessage,
+  getMainMenuMessage,
+  getMapWelcomeMessage,
+  getServiceMenuMessage,
+} from './src/language.js';
+
 import { isEmergency, emergencyReply } from './src/emergency.js';
 import { generateReply } from './src/ai.js';
 import { analyzeImage } from './src/vision.js';
@@ -11,7 +26,23 @@ import { isLocationRequest, locationReceivedMessage, detectSearchType } from './
 import { searchNearby, searchByKeyword, TYPE_LABEL } from './src/places.js';
 import { isEventRequest, searchEvents } from './src/events.js';
 import { detectIntent } from './src/router.js';
-import { isHumanRequest, incrementFailCount, resetFailCount, shouldEscalate, notifyHumanViaLine, humanRequestReply } from './src/human.js';
+import {
+  isHumanRequest,
+  incrementFailCount,
+  shouldEscalate,
+  notifyHumanViaLine,
+} from './src/human.js';
+
+import {
+  MAP_LINK,
+  MAP_INTRO,
+  WEEKLY_CURATION,
+  SERVICE_CATALOG,
+  AD_SLOTS,
+  getWeeklyCurationMessage,
+  getServiceMessage,
+  getAdMessage,
+} from './src/curation.js';
 
 dotenv.config();
 
@@ -32,6 +63,8 @@ async function replyMessage(replyToken, ...texts) {
   const messages = texts
     .filter(Boolean)
     .map((text) => ({ type: 'text', text }));
+
+  if (messages.length === 0) return;
 
   const response = await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
@@ -55,6 +88,7 @@ function cleanLocationText(text = '') {
     .replace(/^nearby\s+/i, '')
     .replace(/^near\s+/i, '')
     .replace(/^around\s+/i, '')
+    .replace(/^cari\s+/i, '')
     .replace(/^찾아줘\s+/i, '')
     .trim();
 }
@@ -67,11 +101,9 @@ function isCategoryOnly(text = '') {
     'convenience', 'mart', 'supermarket', 'bank', 'atm',
     'parking', 'gas', 'gas station', 'attraction',
     'halal food', 'halal restaurant',
-    '호텔', '식당', '맛집', '카페', '약국', '병원', '음식', '할랄',
-    '영화관', '박물관', '편의점', '마트', '은행', '주차장', '주유소',
-    'khách sạn', 'nhà hàng', 'cà phê', 'nhà thuốc',
-    'restoran', 'apotek', 'kafe', 'makanan', 'makanan halal',
-    'буудал', 'ресторан', 'эмийн сан', 'эмнэлэг',
+    'prayer', 'prayer room', 'mosque', 'masjid', 'musholla', 'musolla', 'tempat sholat',
+    'hotel', 'restoran', 'kafe', 'apotek', 'rumah sakit', 'makanan halal',
+    '쇼핑', '할랄', '맛집', '식당', '카페', '병원', '약국', '호텔', '기도실', '모스크',
   ];
   const t = text.trim().toLowerCase();
   return categories.some((c) => t === c);
@@ -80,7 +112,12 @@ function isCategoryOnly(text = '') {
 function looksLikeLocation(text = '') {
   const t = text.trim().toLowerCase();
   if (!t) return false;
-  const keywords = ['station', 'stn', 'exit', 'dong', 'gu', 'ro', 'gil', '역', '동', '구', '로', '길'];
+
+  const keywords = [
+    'station', 'stn', 'exit', 'dong', 'gu', 'ro', 'gil',
+    '역', '동', '구', '로', '길',
+  ];
+
   if (keywords.some((k) => t.includes(k))) return true;
   return text.trim().length <= 30 && /^[a-zA-Z0-9\s\-]+$/.test(text.trim());
 }
@@ -89,46 +126,148 @@ function getSafeSearchType(searchType = '') {
   const allowed = [
     'restaurant', 'cafe', 'convenience', 'culture', 'hotel',
     'attraction', 'subway', 'bank', 'mart', 'hospital',
-    'pharmacy', 'public', 'school', 'gas', 'parking', 'halal'
+    'pharmacy', 'public', 'school', 'gas', 'parking', 'halal',
   ];
   return allowed.includes(searchType) ? searchType : 'restaurant';
 }
 
 function hasExplicitCategory(text = '', routeSearchType = '') {
   if (routeSearchType && routeSearchType !== 'restaurant') return true;
+
   const categoryWords = [
     'hotel', 'cafe', 'coffee', 'pharmacy', 'hospital', 'clinic', 'halal',
     'movie', 'cinema', 'theater', 'museum', 'gallery',
     'convenience', 'mart', 'bank', 'atm', 'parking', 'gas',
-    '호텔', '카페', '약국', '병원', '할랄', '영화관', '편의점', '마트', '은행',
-    'khách sạn', 'cà phê', 'nhà thuốc', 'bệnh viện',
-    'apotek', 'makanan halal',
-    'буудал', 'кафе', 'эмийн сан', 'эмнэлэг',
+    'prayer', 'prayer room', 'mosque', 'masjid', 'musholla', 'musolla',
+    'restoran', 'kafe', 'apotek', 'rumah sakit', 'makanan halal',
+    '할랄', '맛집', '식당', '카페', '병원', '약국', '호텔', '기도실', '모스크',
   ];
+
   const t = text.toLowerCase();
-  return categoryWords.some(w => t.includes(w));
+  return categoryWords.some((w) => t.includes(w));
+}
+
+function isPrayerRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  const keywords = [
+    '3',
+    'prayer', 'prayer room', 'mosque', 'masjid', 'tempat sholat',
+    'shalat', 'musholla', 'musolla',
+    '기도', '기도실', '모스크',
+  ];
+  return keywords.some((k) => t === k || t.includes(k));
+}
+
+function isHalalRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  const keywords = [
+    '2',
+    'halal', 'halal food', 'halal restaurant',
+    'makanan halal', 'restoran halal',
+    '할랄', '할랄 음식', '할랄 식당',
+  ];
+  return keywords.some((k) => t === k || t.includes(k));
+}
+
+function isShoppingRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  const keywords = [
+    '5',
+    'shopping', 'discount', 'sale', 'tax free', 'cosmetics',
+    'belanja', 'diskon',
+    '쇼핑', '할인', '면세',
+  ];
+  return keywords.some((k) => t === k || t.includes(k));
+}
+
+function isMenuRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  const keywords = [
+    'menu', 'start', 'home', 'options', '0', 'back',
+    'mulai', 'bantuan', 'kembali',
+    '메뉴', '처음', '홈',
+  ];
+  return keywords.some((k) => t === k || t.includes(k));
+}
+
+function isServiceMenuRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  return t === '6' || t.includes('service') || t.includes('layanan') || t.includes('서비스');
+}
+
+function isVisaRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  return t === '7' || t.includes('visa') || t.includes('extension') || t.includes('visa extension') || t.includes('perpanjang visa') || t.includes('비자');
+}
+
+function isJobRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  return t === '8' || t.includes('job') || t.includes('work') || t.includes('recruit') || t.includes('lowongan') || t.includes('kerja') || t.includes('직업') || t.includes('구인');
+}
+
+function isDeliveryRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  return t === '9' || t.includes('delivery') || t.includes('send package') || t.includes('barang') || t.includes('courier') || t.includes('물품') || t.includes('배달');
+}
+
+function isGuideRequest(text = '') {
+  const t = text.trim().toLowerCase();
+  return t === '10' || t.includes('guide') || t.includes('day guide') || t.includes('tour guide') || t.includes('pendamping') || t.includes('가이드');
 }
 
 const ASK_LOCATION = {
   en: '📍 Which area are you in?\n(e.g. Gangnam / Hongdae / Yongsan / Myeongdong)',
-  vi: '📍 Bạn đang ở khu vực nào?\n(vd: Gangnam / Hongdae / Yongsan)',
-  id: '📍 Anda di area mana?\n(cth: Gangnam / Hongdae / Yongsan)',
-  mn: '📍 Та аль хороонд байна вэ?\n(жш: Gangnam / Hongdae / Yongsan)',
+  id: '📍 Kamu ada di area mana?\n(contoh: Gangnam / Hongdae / Yongsan / Myeongdong)',
 };
 
 const ASK_CATEGORY = {
-  en: (area) => `📍 I see you're near "${area}"!\nWhat are you looking for?\n\n🍜 Restaurant\n☕ Cafe\n🏨 Hotel\n🎭 Movie theater / Museum\n💊 Pharmacy\n🏥 Hospital\n🕌 Halal food\n🏪 Convenience store\n🏦 Bank\n🅿️ Parking`,
-  vi: (area) => `📍 Bạn đang ở gần "${area}"!\nBạn đang tìm gì?\n\n🍜 Nhà hàng\n☕ Cà phê\n🏨 Khách sạn\n🎭 Rạp chiếu phim / Bảo tàng\n💊 Nhà thuốc\n🏥 Bệnh viện\n🕌 Đồ halal\n🏪 Cửa hàng tiện lợi\n🏦 Ngân hàng\n🅿️ Bãi đỗ xe`,
-  id: (area) => `📍 Anda dekat "${area}"!\nAnda mencari apa?\n\n🍜 Restoran\n☕ Kafe\n🏨 Hotel\n🎭 Bioskop / Museum\n💊 Apotek\n🏥 Rumah sakit\n🕌 Makanan halal\n🏪 Minimarket\n🏦 Bank\n🅿️ Parkir`,
-  mn: (area) => `📍 Та "${area}" орчимд байна!\nЮу хайж байна вэ?\n\n🍜 Ресторан\n☕ Кафе\n🏨 Зочид буудал\n🎭 Кино театр / Музей\n💊 Эмийн сан\n🏥 Эмнэлэг\n🕌 Халал хоол\n🏪 Дэлгүүр\n🏦 Банк\n🅿️ Зогсоол`,
+  en: (area) =>
+    `📍 I see you're near "${area}"!\nWhat are you looking for?\n\n2️⃣ Halal food\n3️⃣ Prayer room / Mosque\n4️⃣ Events\n5️⃣ Shopping / deals\n6️⃣ More services`,
+  id: (area) =>
+    `📍 Saya lihat kamu dekat "${area}"!\nKamu cari apa?\n\n2️⃣ Makanan halal\n3️⃣ Tempat sholat / Masjid\n4️⃣ Event hari ini\n5️⃣ Shopping / promo\n6️⃣ Layanan lainnya`,
 };
 
 const MAP_GUIDE = {
-  en: '🗺️ Tap the link to open in Kakao Map and get directions!',
-  vi: '🗺️ Nhấn vào link để mở Kakao Map và chỉ đường!',
-  id: '🗺️ Ketuk link untuk membuka Kakao Map dan petunjuk arah!',
-  mn: '🗺️ Линк дээр дарж Kakao Map дээр нээж чиглэл авна уу!',
+  en: '🗺️ Tap the link to open directions.',
+  id: '🗺️ Klik link untuk buka petunjuk arah.',
 };
+
+const HUMAN_HANDOFF_MESSAGE = {
+  en: `👤 Connecting you to our team now.
+Please stay in this chat.
+
+🔒 For your safety, do not share personal contact details.`,
+  id: `👤 Kami sedang menghubungkan kamu ke tim kami.
+Mohon tetap di chat ini.
+
+🔒 Demi keamanan, jangan bagikan kontak pribadi.`,
+};
+
+const HUMAN_WAITING_MESSAGE = {
+  en: `👤 Our team has already been notified.
+Please wait here a moment.`,
+  id: `👤 Tim kami sudah diberi tahu.
+Mohon tunggu sebentar di chat ini.`,
+};
+
+async function sendHumanHandoff(replyToken, userId, userText, lang, reason) {
+  const currentState = getState(userId);
+
+  if (currentState === 'waiting_human') {
+    await replyMessage(replyToken, HUMAN_WAITING_MESSAGE[lang] || HUMAN_WAITING_MESSAGE.en);
+    return;
+  }
+
+  await notifyHumanViaLine({
+    userId,
+    userMessage: userText,
+    lang,
+    reason,
+  });
+
+  setState(userId, 'waiting_human');
+  await replyMessage(replyToken, HUMAN_HANDOFF_MESSAGE[lang] || HUMAN_HANDOFF_MESSAGE.en);
+}
 
 async function handleSearch(replyToken, areaText, searchType, lang, originalUserText = '') {
   try {
@@ -142,15 +281,14 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
         `${label} near "${areaText}":\n\n${results}`,
         MAP_GUIDE[lang] || MAP_GUIDE.en
       );
-    } else {
-      const notFound = {
-        en: `😅 No results near "${areaText}". Try another area!`,
-        vi: `😅 Không tìm thấy gần "${areaText}". Thử khu vực khác!`,
-        id: `😅 Tidak ada hasil dekat "${areaText}". Coba area lain!`,
-        mn: `😅 "${areaText}" орчимд үр дүн олдсонгүй. Өөр газар оруулна уу!`,
-      };
-      await replyMessage(replyToken, notFound[lang] || notFound.en);
+      return;
     }
+
+    const notFound = {
+      en: `😅 No results near "${areaText}". Try another area!`,
+      id: `😅 Tidak ada hasil dekat "${areaText}". Coba area lain ya!`,
+    };
+    await replyMessage(replyToken, notFound[lang] || notFound.en);
   } catch (err) {
     console.error('Search failed:', err.message);
     await replyMessage(replyToken, await generateReply(originalUserText || areaText, lang));
@@ -159,10 +297,11 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
 
 async function translateClarify(question, lang) {
   if (!question || lang === 'en') return question;
+
   try {
     return await generateReply(
-      `Translate this short question naturally into the target language. Output only the translation:\n"${question}"`,
-      lang
+      `Translate this short question naturally into Indonesian. Output only the translation:\n"${question}"`,
+      'id'
     );
   } catch {
     return question;
@@ -191,7 +330,6 @@ app.post('/webhook', async (req, res) => {
       const userId = event.source?.userId || 'unknown';
       const lang = getSession(userId);
 
-      // ── 위치 메시지 처리 ──
       if (event.message.type === 'location') {
         const { latitude, longitude, address } = event.message;
         const currentState = getState(userId);
@@ -204,50 +342,60 @@ app.post('/webhook', async (req, res) => {
 
         if (wantedType && wantedType !== 'unknown') {
           try {
-            const results = await searchNearby(latitude, longitude, wantedType);
-            const labelObj = TYPE_LABEL[wantedType] || TYPE_LABEL.restaurant;
+            const actualType = wantedType === 'prayer' ? 'halal' : wantedType;
+            const results = await searchNearby(latitude, longitude, actualType);
+            const labelObj = TYPE_LABEL[actualType] || TYPE_LABEL.restaurant;
             const label = labelObj[lang || 'en'] || labelObj.en;
+
             if (results) {
-              await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang || 'en']);
+              await replyMessage(
+                event.replyToken,
+                `${label} nearby:\n\n${results}`,
+                wantedType === 'prayer'
+                  ? MAP_LINK
+                  : (MAP_GUIDE[lang || 'en'] || MAP_GUIDE.en)
+              );
             } else {
-              await replyMessage(event.replyToken, locationReceivedMessage(lang || 'en', address || 'Current location'));
+              await replyMessage(
+                event.replyToken,
+                locationReceivedMessage(lang || 'en', address || 'Current location')
+              );
             }
           } catch (err) {
-            await replyMessage(event.replyToken, locationReceivedMessage(lang || 'en', address || 'Current location'));
+            await replyMessage(
+              event.replyToken,
+              locationReceivedMessage(lang || 'en', address || 'Current location')
+            );
           }
         } else {
           setState(userId, 'awaiting_category');
-          const askCat = ASK_CATEGORY[lang || 'en'] || ASK_CATEGORY.en;
+          const askCat = ASK_CATEGORY[lang || 'id'] || ASK_CATEGORY.id;
           await replyMessage(event.replyToken, askCat(address || 'your location'));
         }
         continue;
       }
 
-      // ── 이미지 메시지 처리 ──
       if (event.message.type === 'image') {
         if (!lang) {
           await replyMessage(event.replyToken, languageSelectionMessage());
           continue;
         }
+
         try {
           const { text: analysisText, location: detectedLocation } = await analyzeImage(event.message.id, lang);
 
           if (detectedLocation && detectedLocation.toLowerCase() !== 'unknown') {
-            setState(userId, 'has_location:' + detectedLocation);
-            const followUp = {
-              en: `📍 I can see you're near "${detectedLocation}"!\nWhat do you need?\n(e.g. "hotel" / "restaurant" / "movie theater")`,
-              vi: `📍 Tôi thấy bạn đang ở gần "${detectedLocation}"!\nBạn cần gì?\n(vd: "hotel" / "nhà hàng" / "rạp chiếu phim")`,
-              id: `📍 Saya lihat Anda dekat "${detectedLocation}"!\nAnda butuh apa?\n(cth: "hotel" / "restoran" / "bioskop")`,
-              mn: `📍 Та "${detectedLocation}" орчимд байна!\nЮу хэрэгтэй вэ?\n(жш: "hotel" / "ресторан" / "кино театр")`,
-            };
-            await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
+            setState(userId, `has_location:${detectedLocation}`);
+            await replyMessage(
+              event.replyToken,
+              analysisText,
+              ASK_CATEGORY[lang](detectedLocation)
+            );
           } else {
             setState(userId, 'awaiting_location_unknown');
             const followUp = {
-              en: `📍 Want to find nearby places?\nType area name + what you need!\n(e.g. "Gangnam hotel" / "Hongdae restaurant")`,
-              vi: `📍 Muốn tìm nơi gần đây?\nNhập tên khu vực + nhu cầu!\n(vd: "Gangnam hotel" / "Hongdae nhà hàng")`,
-              id: `📍 Ingin mencari tempat terdekat?\nKetik nama area + kebutuhan!\n(cth: "Gangnam hotel" / "Hongdae restoran")`,
-              mn: `📍 Ойролцоох газар хайх уу?\nГазрын нэр + хэрэгцээгээ бичнэ үү!\n(жш: "Gangnam hotel" / "Hongdae ресторан")`,
+              en: `📍 I couldn't detect the location clearly.\nPlease type your area.\n(e.g. Gangnam / Hongdae / Myeongdong)`,
+              id: `📍 Saya belum bisa membaca lokasinya dengan jelas.\nTolong ketik area kamu.\n(contoh: Gangnam / Hongdae / Myeongdong)`,
             };
             await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
           }
@@ -255,31 +403,31 @@ app.post('/webhook', async (req, res) => {
           console.error('Image analysis failed:', err.message);
           const errorMsg = {
             en: '⚠️ Sorry, I could not analyze the image. Please try again.',
-            vi: '⚠️ Xin lỗi, tôi không thể phân tích ảnh. Vui lòng thử lại.',
-            id: '⚠️ Maaf, saya tidak bisa menganalisis gambar. Silakan coba lagi.',
-            mn: '⚠️ Уучлаарай, зургийг шинжлэх боломжгүй байна. Дахин оролдоно уу.',
+            id: '⚠️ Maaf, saya belum bisa menganalisis gambar itu. Coba lagi ya.',
           };
           await replyMessage(event.replyToken, errorMsg[lang] || errorMsg.en);
         }
         continue;
       }
 
-      // ── 텍스트 메시지 처리 ──
       if (event.message.type !== 'text') continue;
 
       const userText = (event.message.text || '').trim();
+      const lowered = userText.toLowerCase();
       console.log(`[${userId}] ${userText}`);
 
-      // 1. 언어 선택
       const selectedLang = normalizeLanguageChoice(userText);
       if (selectedLang) {
         setSession(userId, selectedLang);
         setState(userId, null);
-        await replyMessage(event.replyToken, welcomeMessage(selectedLang));
+        await replyMessage(
+          event.replyToken,
+          getMapWelcomeMessage(selectedLang),
+          getMainMenuMessage(selectedLang)
+        );
         continue;
       }
 
-      // 2. 언어 미선택
       if (!lang) {
         await replyMessage(event.replyToken, languageSelectionMessage());
         continue;
@@ -288,57 +436,148 @@ app.post('/webhook', async (req, res) => {
       const currentState = getState(userId);
       const savedLocation = getLocation(userId);
 
-      // 3. AI 라우팅
-      const route = await detectIntent(userText, lang);
-      console.log('AI route:', route);
+      if (currentState === 'waiting_human') {
+        if (isHumanRequest(userText) || lowered === '0') {
+          await replyMessage(event.replyToken, HUMAN_WAITING_MESSAGE[lang] || HUMAN_WAITING_MESSAGE.en);
+          continue;
+        }
+      }
 
-      // 4. 긴급 상황 (최우선)
-      if (route.intent === 'emergency' || isEmergency(userText)) {
+      if (isMenuRequest(userText)) {
+        await replyMessage(event.replyToken, getMainMenuMessage(lang));
+        continue;
+      }
+
+      if (routeSafeEmergency(userText)) {
         await replyMessage(event.replyToken, emergencyReply(lang));
         continue;
       }
 
-      // 5. 사람 도우미 호출 (키워드 직접 요청)
-      if (isHumanRequest(userText)) {
-        await notifyHumanViaLine({ userId, userMessage: userText, lang, reason: 'keyword' });
-        await replyMessage(event.replyToken, humanRequestReply(lang, 'keyword'));
+      if (lowered === '1') {
+        await replyMessage(
+          event.replyToken,
+          getMapWelcomeMessage(lang),
+          getAdMessage(lang, 'main'),
+          getMainMenuMessage(lang)
+        );
         continue;
       }
 
-      // 6. 문화행사 검색
-      if (route.intent === 'events' || isEventRequest(userText)) {
+      if (lowered === '2' || isHalalRequest(userText)) {
+        if (savedLocation?.address) {
+          await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
+        } else if (savedLocation?.lat && savedLocation?.lng) {
+          const results = await searchNearby(savedLocation.lat, savedLocation.lng, 'halal');
+          if (results) {
+            const labelObj = TYPE_LABEL.halal || TYPE_LABEL.restaurant;
+            const label = labelObj[lang] || labelObj.en;
+            await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
+          } else {
+            setState(userId, 'awaiting_location_halal');
+            await replyMessage(
+              event.replyToken,
+              MAP_INTRO[lang] || MAP_INTRO.en,
+              MAP_LINK,
+              ASK_LOCATION[lang] || ASK_LOCATION.en
+            );
+          }
+        } else {
+          setState(userId, 'awaiting_location_halal');
+          await replyMessage(
+            event.replyToken,
+            MAP_INTRO[lang] || MAP_INTRO.en,
+            MAP_LINK,
+            ASK_LOCATION[lang] || ASK_LOCATION.en
+          );
+        }
+        continue;
+      }
+
+      if (lowered === '3' || isPrayerRequest(userText)) {
+        setState(userId, 'awaiting_location_prayer');
+        await replyMessage(
+          event.replyToken,
+          getServiceMessage('prayer', lang),
+          MAP_LINK,
+          ASK_LOCATION[lang] || ASK_LOCATION.en
+        );
+        continue;
+      }
+
+      if (lowered === '4' || isEventRequest(userText)) {
+        const curated = getWeeklyCurationMessage(lang);
+        const adText = getAdMessage(lang, 'events');
+        await replyMessage(event.replyToken, curated, adText, buildMoreEventsPrompt(lang));
+        continue;
+      }
+
+      if (lowered === '4 more' || lowered === 'more events' || lowered === 'more') {
         try {
           const results = await searchEvents(userText, lang);
           if (results) {
-            await replyMessage(event.replyToken, results, MAP_GUIDE[lang] || MAP_GUIDE.en);
+            await replyMessage(event.replyToken, results);
           } else {
-            const notFound = {
-              en: '😅 No events found. Try "Seoul concert" or "Busan festival".',
-              vi: '😅 Không tìm thấy sự kiện. Thử "Seoul concert" hoặc "Busan festival".',
-              id: '😅 Tidak ada acara. Coba "Seoul concert" atau "Busan festival".',
-              mn: '😅 Арга хэмжээ олдсонгүй. "Seoul concert" эсвэл "Busan festival" гэж хайна уу.',
-            };
-            await replyMessage(event.replyToken, notFound[lang] || notFound.en);
+            await replyMessage(event.replyToken, buildNoMoreEventsMessage(lang));
           }
         } catch (err) {
           console.error('Event search failed:', err.message);
-          await replyMessage(event.replyToken, await generateReply(userText, lang));
+          await replyMessage(event.replyToken, buildNoMoreEventsMessage(lang));
         }
         continue;
       }
 
-      // 7. 카테고리 대기 상태
-      if (currentState === 'awaiting_category') {
-        if (route.clarifyQuestion) {
-          const translated = await translateClarify(route.clarifyQuestion, lang);
-          setState(userId, 'awaiting_clarify:' + (route.searchType || 'general'));
-          await replyMessage(event.replyToken, translated);
-          continue;
-        }
+      if (lowered === '5' || isShoppingRequest(userText)) {
+        await replyMessage(
+          event.replyToken,
+          getServiceMessage('shopping', lang),
+          getAdMessage(lang, 'shopping')
+        );
+        continue;
+      }
 
-        const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
+      if (lowered === '6' || isServiceMenuRequest(userText)) {
+        await replyMessage(event.replyToken, getServiceMenuMessage(lang));
+        continue;
+      }
+
+      if (isVisaRequest(userText)) {
+        await replyMessage(event.replyToken, getServiceMessage('visa', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'visa');
+        continue;
+      }
+
+      if (isJobRequest(userText)) {
+        await replyMessage(event.replyToken, getServiceMessage('jobs', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'jobs');
+        continue;
+      }
+
+      if (isDeliveryRequest(userText)) {
+        await replyMessage(event.replyToken, getServiceMessage('delivery', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'delivery');
+        continue;
+      }
+
+      if (isGuideRequest(userText)) {
+        await replyMessage(event.replyToken, getServiceMessage('guide', lang));
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'guide');
+        continue;
+      }
+
+      if (lowered === '0' || isHumanRequest(userText)) {
+        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
+        continue;
+      }
+
+      if (currentState === 'awaiting_category') {
+        let searchType = getSafeSearchType(detectSearchType(userText));
+
+        if (isPrayerRequest(userText)) searchType = 'halal';
+        if (isHalalRequest(userText)) searchType = 'halal';
+
         setState(userId, null);
         const loc = getLocation(userId);
+
         if (loc?.lat && loc?.lng) {
           const results = await searchNearby(loc.lat, loc.lng, searchType);
           const labelObj = TYPE_LABEL[searchType] || TYPE_LABEL.restaurant;
@@ -346,100 +585,62 @@ app.post('/webhook', async (req, res) => {
           if (results) {
             await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
           } else {
-            await replyMessage(event.replyToken, await generateReply(userText, lang));
+            await replyMessage(event.replyToken, getMainMenuMessage(lang));
           }
         } else if (loc?.address) {
           await handleSearch(event.replyToken, loc.address, searchType, lang, userText);
         } else {
-          setState(userId, 'awaiting_location_' + searchType);
+          setState(userId, `awaiting_location_${searchType}`);
           await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
         }
         continue;
       }
 
-      // 8. 명확화 대기 상태
-      if (currentState && currentState.startsWith('awaiting_clarify:')) {
-        const pendingType = currentState.replace('awaiting_clarify:', '');
-        const t = userText.toLowerCase();
-        const isYes = t.includes('yes') || t.includes('네') || t.includes('응') ||
-          t.includes('yeah') || t.includes('yep') || t.includes('맞아') || t.includes('그래');
-
-        if (isYes) {
-          setState(userId, null);
-          const searchType = getSafeSearchType(pendingType);
-          const loc = getLocation(userId);
-          if (loc?.address) {
-            await handleSearch(event.replyToken, loc.address, searchType, lang, userText);
-          } else if (loc?.lat && loc?.lng) {
-            const results = await searchNearby(loc.lat, loc.lng, searchType);
-            const labelObj = TYPE_LABEL[searchType] || TYPE_LABEL.restaurant;
-            const label = labelObj[lang] || labelObj.en;
-            if (results) {
-              await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
-            } else {
-              setState(userId, 'awaiting_location_' + searchType);
-              await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
-            }
-          } else {
-            setState(userId, 'awaiting_location_' + searchType);
-            await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
-          }
-        } else {
-          setState(userId, 'awaiting_category');
-          const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
-          const loc = getLocation(userId);
-          await replyMessage(event.replyToken, askCat(loc?.address || 'your location'));
-        }
-        continue;
-      }
-
-      // 9. 이미지에서 위치 감지된 상태
       if (currentState && currentState.startsWith('has_location:')) {
         const detectedLocation = currentState.replace('has_location:', '');
+        let searchType = getSafeSearchType(detectSearchType(userText));
 
-        if (route.clarifyQuestion) {
-          const translated = await translateClarify(route.clarifyQuestion, lang);
-          setState(userId, 'awaiting_clarify:' + (route.searchType || 'culture'));
-          setLocation(userId, null, null, detectedLocation);
-          await replyMessage(event.replyToken, translated);
-          continue;
-        }
+        if (isPrayerRequest(userText)) searchType = 'halal';
+        if (isHalalRequest(userText)) searchType = 'halal';
 
-        const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
         setState(userId, null);
         await handleSearch(event.replyToken, detectedLocation, searchType, lang, userText);
         continue;
       }
 
-      // 10. 위치 대기 상태
       if (currentState && currentState.startsWith('awaiting_location')) {
         if (isCategoryOnly(userText)) {
-          const newSearchType = getSafeSearchType(route.searchType || detectSearchType(userText));
-          setState(userId, 'awaiting_location_' + newSearchType);
+          let newSearchType = getSafeSearchType(detectSearchType(userText));
+          if (isPrayerRequest(userText)) newSearchType = 'halal';
+          if (isHalalRequest(userText)) newSearchType = 'halal';
+
+          setState(userId, `awaiting_location_${newSearchType}`);
           await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
           continue;
         }
-        const savedType = currentState.replace('awaiting_location_', '');
-        const searchType = getSafeSearchType(
-          savedType && savedType !== 'awaiting_location' && savedType !== 'unknown'
-            ? savedType
-            : route.searchType || detectSearchType(userText)
-        );
+
+        let savedType = currentState.replace('awaiting_location_', '');
+        if (savedType === 'prayer') savedType = 'halal';
+
+        const searchType = getSafeSearchType(savedType || detectSearchType(userText));
+
         setState(userId, null);
+
+        if (savedType === 'prayer') {
+          setLocation(userId, null, null, userText);
+          await replyMessage(event.replyToken, getServiceMessage('prayer', lang), MAP_LINK);
+          continue;
+        }
+
         await handleSearch(event.replyToken, userText, searchType, lang, userText);
         continue;
       }
 
-      // 11. 저장된 위치 + 카테고리 입력
       if (savedLocation && isCategoryOnly(userText)) {
-        if (route.clarifyQuestion) {
-          const translated = await translateClarify(route.clarifyQuestion, lang);
-          setState(userId, 'awaiting_clarify:' + (route.searchType || 'culture'));
-          await replyMessage(event.replyToken, translated);
-          continue;
-        }
+        let searchType = getSafeSearchType(detectSearchType(userText));
+        if (isPrayerRequest(userText)) searchType = 'halal';
+        if (isHalalRequest(userText)) searchType = 'halal';
 
-        const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
         if (savedLocation.address) {
           await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
         } else if (savedLocation.lat && savedLocation.lng) {
@@ -449,31 +650,22 @@ app.post('/webhook', async (req, res) => {
           if (results) {
             await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
           } else {
-            await replyMessage(event.replyToken, await generateReply(userText, lang));
+            await replyMessage(event.replyToken, getMainMenuMessage(lang));
           }
         }
         continue;
       }
 
-      // 12. 장소 검색 의도
-      if (route.intent === 'places' || isLocationRequest(userText)) {
-        const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
-        const categoryExplicit = hasExplicitCategory(userText, route.searchType);
-
-        if (route.clarifyQuestion) {
-          const translated = await translateClarify(route.clarifyQuestion, lang);
-          setState(userId, 'awaiting_clarify:' + searchType);
-          await replyMessage(event.replyToken, translated);
-          continue;
-        }
+      if (isLocationRequest(userText)) {
+        const searchType = getSafeSearchType(detectSearchType(userText));
+        const categoryExplicit = hasExplicitCategory(userText);
 
         if (savedLocation?.address) {
           if (categoryExplicit) {
             await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
           } else {
             setState(userId, 'awaiting_category');
-            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
-            await replyMessage(event.replyToken, askCat(savedLocation.address));
+            await replyMessage(event.replyToken, ASK_CATEGORY[lang](savedLocation.address));
           }
         } else if (savedLocation?.lat && savedLocation?.lng) {
           if (categoryExplicit) {
@@ -483,33 +675,68 @@ app.post('/webhook', async (req, res) => {
             if (results) {
               await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
             } else {
-              setState(userId, 'awaiting_location_' + searchType);
+              setState(userId, `awaiting_location_${searchType}`);
               await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
             }
           } else {
             setState(userId, 'awaiting_category');
-            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
-            await replyMessage(event.replyToken, askCat('your location'));
+            await replyMessage(event.replyToken, ASK_CATEGORY[lang]('your location'));
           }
         } else {
           if (categoryExplicit) {
-            setState(userId, 'awaiting_location_' + searchType);
+            setState(userId, `awaiting_location_${searchType}`);
             await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
           } else if (looksLikeLocation(userText)) {
             const cleanedLocation = cleanLocationText(userText);
             setLocation(userId, null, null, cleanedLocation);
             setState(userId, 'awaiting_category');
-            const askCat = ASK_CATEGORY[lang] || ASK_CATEGORY.en;
-            await replyMessage(event.replyToken, askCat(cleanedLocation));
+            await replyMessage(event.replyToken, ASK_CATEGORY[lang](cleanedLocation));
           } else {
-            setState(userId, 'awaiting_location_' + searchType);
+            setState(userId, 'awaiting_category');
             await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
           }
         }
         continue;
       }
 
-      // 13. 일반 AI 응답 + 실패 감지 자동 에스컬레이션
+      const route = await detectIntent(userText, lang);
+
+      if (route.intent === 'emergency' || isEmergency(userText)) {
+        await replyMessage(event.replyToken, emergencyReply(lang));
+        continue;
+      }
+
+      if (route.intent === 'events') {
+        try {
+          const curated = getWeeklyCurationMessage(lang);
+          const results = await searchEvents(userText, lang);
+          if (results) {
+            await replyMessage(event.replyToken, curated, results);
+          } else {
+            await replyMessage(event.replyToken, curated, buildNoMoreEventsMessage(lang));
+          }
+        } catch (err) {
+          console.error('Event search failed:', err.message);
+          await replyMessage(event.replyToken, getWeeklyCurationMessage(lang));
+        }
+        continue;
+      }
+
+      if (route.intent === 'places') {
+        const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
+        const areaText = cleanLocationText(userText);
+
+        if (savedLocation?.address) {
+          await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
+        } else if (looksLikeLocation(areaText)) {
+          await handleSearch(event.replyToken, areaText, searchType, lang, userText);
+        } else {
+          setState(userId, `awaiting_location_${searchType}`);
+          await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
+        }
+        continue;
+      }
+
       let aiReply = null;
       try {
         aiReply = await generateReply(userText, lang);
@@ -518,30 +745,46 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (!aiReply) {
-        const session = { failCount: getState(userId + '_failcount') || 0 };
+        const session = { failCount: getState(`${userId}_failcount`) || 0 };
         const failCount = incrementFailCount(session);
-        setState(userId + '_failcount', failCount);
+        setState(`${userId}_failcount`, failCount);
 
         if (shouldEscalate(session)) {
-          await notifyHumanViaLine({ userId, userMessage: userText, lang, reason: 'threshold' });
-          await replyMessage(event.replyToken, humanRequestReply(lang, 'threshold'));
-          setState(userId + '_failcount', 0);
+          await sendHumanHandoff(event.replyToken, userId, userText, lang, 'threshold');
+          setState(`${userId}_failcount`, 0);
         } else {
-          await notifyHumanViaLine({ userId, userMessage: userText, lang, reason: 'ai_fail' });
-          await replyMessage(event.replyToken, humanRequestReply(lang, 'ai_fail'));
+          await sendHumanHandoff(event.replyToken, userId, userText, lang, 'ai_fail');
         }
         continue;
       }
 
-      // AI 성공 시 실패 카운트 리셋
-      setState(userId + '_failcount', 0);
+      setState(`${userId}_failcount`, 0);
       await replyMessage(event.replyToken, aiReply);
     }
-
   } catch (error) {
     console.error('Error:', error.message);
   }
 });
+
+function routeSafeEmergency(userText = '') {
+  return isEmergency(userText);
+}
+
+function buildMoreEventsPrompt(lang) {
+  const map = {
+    en: 'Type "more" if you want more event results from the Korea tourism feed.',
+    id: 'Ketik "more" kalau kamu mau lihat event tambahan dari feed pariwisata Korea.',
+  };
+  return map[lang] || map.en;
+}
+
+function buildNoMoreEventsMessage(lang) {
+  const map = {
+    en: '😅 I could not find more event data right now. Please check our curated map updates first.',
+    id: '😅 Saya belum menemukan event tambahan saat ini. Coba cek update map kami dulu ya.',
+  };
+  return map[lang] || map.en;
+}
 
 app.listen(PORT, () => {
   console.log(`VirtualButler.Korea running on port ${PORT}`);
