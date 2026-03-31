@@ -1,5 +1,4 @@
-전체 코드 확인했습니다! 아래가 human 기능 추가된 완성본입니다.
-javascriptimport crypto from 'crypto';
+import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 
