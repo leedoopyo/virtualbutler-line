@@ -179,7 +179,7 @@ function isMenuRequest(text = '') {
   const t = text.trim().toLowerCase();
   const keywords = [
     'menu', 'start', 'home', 'options', 'back',
-    'mulai', 'bantuan', 'kembali',
+    'mulai', 'kembali',
     '메뉴', '처음', '홈',
   ];
   return keywords.some((k) => t === k || t.includes(k));
@@ -192,7 +192,7 @@ function isServiceMenuRequest(text = '') {
 
 function isVisaRequest(text = '') {
   const t = text.trim().toLowerCase();
-  return t.includes('visa') || t.includes('extension') || t.includes('visa extension') || t.includes('perpanjang visa') || t.includes('비자');
+  return t.includes('visa') || t.includes('extension') || t.includes('perpanjang visa') || t.includes('비자');
 }
 
 function isJobRequest(text = '') {
@@ -228,31 +228,11 @@ const MAP_GUIDE = {
 };
 
 const HUMAN_HANDOFF_MESSAGE = {
-  en: `👤 Connecting you to our team now.
-Please stay in this chat.
-
-🔒 For your safety, do not share personal contact details.`,
-  id: `👤 Kami sedang menghubungkan kamu ke tim kami.
-Mohon tetap di chat ini.
-
-🔒 Demi keamanan, jangan bagikan kontak pribadi.`,
-};
-
-const HUMAN_WAITING_MESSAGE = {
-  en: `👤 Our team has already been notified.
-Please wait here a moment.`,
-  id: `👤 Tim kami sudah diberi tahu.
-Mohon tunggu sebentar di chat ini.`,
+  en: `👤 Connecting you to our team now.\nPlease stay in this chat.\n\n🔒 For your safety, do not share personal contact details.`,
+  id: `👤 Kami sedang menghubungkan kamu ke tim kami.\nMohon tetap di chat ini.\n\n🔒 Demi keamanan, jangan bagikan kontak pribadi.`,
 };
 
 async function sendHumanHandoff(replyToken, userId, userText, lang, reason) {
-  const currentState = getState(userId);
-
-  if (currentState === 'waiting_human') {
-    await replyMessage(replyToken, HUMAN_WAITING_MESSAGE[lang] || HUMAN_WAITING_MESSAGE.en);
-    return;
-  }
-
   await notifyHumanViaLine({
     userId,
     userMessage: userText,
@@ -300,14 +280,10 @@ function buildMoreEventsPrompt(lang) {
 
 function buildNoMoreEventsMessage(lang) {
   const map = {
-    en: '😅 I could not find more event data right now. Please check our curated map updates first.',
-    id: '😅 Saya belum menemukan event tambahan saat ini. Coba cek update map kami dulu ya.',
+    en: '😅 No more event data right now. Check our curated map updates first.',
+    id: '😅 Belum ada event tambahan saat ini. Coba cek update map kami dulu ya.',
   };
   return map[lang] || map.en;
-}
-
-function routeSafeEmergency(userText = '') {
-  return isEmergency(userText);
 }
 
 app.get('/', (req, res) => {
@@ -331,10 +307,17 @@ app.post('/webhook', async (req, res) => {
 
       const userId = event.source?.userId || 'unknown';
       const lang = getSession(userId);
+      const currentState = getState(userId);
 
+      // ── waiting_human 상태면 봇 완전 침묵 ──
+      if (currentState === 'waiting_human') {
+        console.log(`[${userId}] waiting_human - bot silent`);
+        continue;
+      }
+
+      // ── 위치 메시지 ──
       if (event.message.type === 'location') {
         const { latitude, longitude, address } = event.message;
-        const currentState = getState(userId);
         const wantedType = currentState && currentState.startsWith('awaiting_location_')
           ? currentState.replace('awaiting_location_', '')
           : null;
@@ -353,7 +336,7 @@ app.post('/webhook', async (req, res) => {
               await replyMessage(
                 event.replyToken,
                 `${label} nearby:\n\n${results}`,
-                wantedType === 'prayer' ? MAP_LINK : (MAP_GUIDE[lang || 'en'] || MAP_GUIDE.en)
+                MAP_GUIDE[lang || 'en'] || MAP_GUIDE.en
               );
             } else {
               await replyMessage(
@@ -375,6 +358,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // ── 이미지 메시지 ──
       if (event.message.type === 'image') {
         if (!lang) {
           setState(userId, 'awaiting_language');
@@ -411,19 +395,17 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // ── 텍스트 메시지 ──
       if (event.message.type !== 'text') continue;
 
       const userText = (event.message.text || '').trim();
       const lowered = userText.toLowerCase();
       console.log(`[${userId}] ${userText}`);
 
-      const currentState = getState(userId);
-
-      // 언어 선택은 awaiting_language 상태에서만
-      const selectedLang =
-        currentState === 'awaiting_language'
-          ? normalizeLanguageChoice(userText)
-          : null;
+      // 1. 언어 선택 (awaiting_language 상태에서만)
+      const selectedLang = currentState === 'awaiting_language'
+        ? normalizeLanguageChoice(userText)
+        : null;
 
       if (selectedLang) {
         setSession(userId, selectedLang);
@@ -436,33 +418,28 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 2. 언어 미선택
       if (!lang) {
-        if (!currentState) {
-          setState(userId, 'awaiting_language');
-        }
+        if (!currentState) setState(userId, 'awaiting_language');
         await replyMessage(event.replyToken, languageSelectionMessage());
         continue;
       }
 
       const savedLocation = getLocation(userId);
 
-      if (currentState === 'waiting_human') {
-        if (isHumanRequest(userText) || lowered === '0') {
-          await replyMessage(event.replyToken, HUMAN_WAITING_MESSAGE[lang] || HUMAN_WAITING_MESSAGE.en);
-          continue;
-        }
-      }
-
+      // 3. 메뉴 요청
       if (isMenuRequest(userText)) {
         await replyMessage(event.replyToken, getMainMenuMessage(lang));
         continue;
       }
 
-      if (routeSafeEmergency(userText)) {
+      // 4. 긴급 상황
+      if (isEmergency(userText)) {
         await replyMessage(event.replyToken, emergencyReply(lang));
         continue;
       }
 
+      // 5. 숫자 메뉴
       if (lowered === '1') {
         await replyMessage(
           event.replyToken,
@@ -478,21 +455,15 @@ app.post('/webhook', async (req, res) => {
           await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
           continue;
         }
-
         if (savedLocation?.lat && savedLocation?.lng) {
           const results = await searchNearby(savedLocation.lat, savedLocation.lng, 'halal');
           if (results) {
             const labelObj = TYPE_LABEL.halal || TYPE_LABEL.restaurant;
             const label = labelObj[lang] || labelObj.en;
-            await replyMessage(
-              event.replyToken,
-              `${label} nearby:\n\n${results}`,
-              MAP_GUIDE[lang] || MAP_GUIDE.en
-            );
+            await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
             continue;
           }
         }
-
         setState(userId, 'awaiting_location_halal');
         await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
         continue;
@@ -558,26 +529,21 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 6. 키워드 감지
       if (isHalalKeyword(userText)) {
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
           continue;
         }
-
         if (savedLocation?.lat && savedLocation?.lng) {
           const results = await searchNearby(savedLocation.lat, savedLocation.lng, 'halal');
           if (results) {
             const labelObj = TYPE_LABEL.halal || TYPE_LABEL.restaurant;
             const label = labelObj[lang] || labelObj.en;
-            await replyMessage(
-              event.replyToken,
-              `${label} nearby:\n\n${results}`,
-              MAP_GUIDE[lang] || MAP_GUIDE.en
-            );
+            await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
             continue;
           }
         }
-
         setState(userId, 'awaiting_location_halal');
         await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
         continue;
@@ -602,7 +568,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      if (lowered === 'more' || lowered === 'more events' || lowered === '4 more') {
+      if (lowered === 'more' || lowered === 'more events') {
         try {
           const results = await searchEvents(userText, lang);
           if (results) {
@@ -611,7 +577,6 @@ app.post('/webhook', async (req, res) => {
             await replyMessage(event.replyToken, buildNoMoreEventsMessage(lang));
           }
         } catch (err) {
-          console.error('Event search failed:', err.message);
           await replyMessage(event.replyToken, buildNoMoreEventsMessage(lang));
         }
         continue;
@@ -651,9 +616,9 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 7. 상태별 처리
       if (currentState === 'awaiting_category') {
         let searchType = getSafeSearchType(detectSearchType(userText));
-
         if (isPrayerKeyword(userText)) searchType = 'halal';
         if (isHalalKeyword(userText)) searchType = 'halal';
 
@@ -681,7 +646,6 @@ app.post('/webhook', async (req, res) => {
       if (currentState && currentState.startsWith('has_location:')) {
         const detectedLocation = currentState.replace('has_location:', '');
         let searchType = getSafeSearchType(detectSearchType(userText));
-
         if (isPrayerKeyword(userText)) searchType = 'halal';
         if (isHalalKeyword(userText)) searchType = 'halal';
 
@@ -695,7 +659,6 @@ app.post('/webhook', async (req, res) => {
           let newSearchType = getSafeSearchType(detectSearchType(userText));
           if (isPrayerKeyword(userText)) newSearchType = 'halal';
           if (isHalalKeyword(userText)) newSearchType = 'halal';
-
           setState(userId, `awaiting_location_${newSearchType}`);
           await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
           continue;
@@ -706,13 +669,6 @@ app.post('/webhook', async (req, res) => {
 
         const searchType = getSafeSearchType(savedType || detectSearchType(userText));
         setState(userId, null);
-
-        if (savedType === 'prayer') {
-          setLocation(userId, null, null, userText);
-          await replyMessage(event.replyToken, getServiceMessage('prayer', lang), MAP_LINK);
-          continue;
-        }
-
         await handleSearch(event.replyToken, userText, searchType, lang, userText);
         continue;
       }
@@ -780,9 +736,10 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 8. AI 라우팅
       const route = await detectIntent(userText, lang);
 
-      if (route.intent === 'emergency' || isEmergency(userText)) {
+      if (route.intent === 'emergency') {
         await replyMessage(event.replyToken, emergencyReply(lang));
         continue;
       }
@@ -797,7 +754,6 @@ app.post('/webhook', async (req, res) => {
             await replyMessage(event.replyToken, curated, buildNoMoreEventsMessage(lang));
           }
         } catch (err) {
-          console.error('Event search failed:', err.message);
           await replyMessage(event.replyToken, getWeeklyCurationMessage(lang));
         }
         continue;
@@ -818,6 +774,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 9. 일반 AI 응답
       let aiReply = null;
       try {
         aiReply = await generateReply(userText, lang);
@@ -842,6 +799,7 @@ app.post('/webhook', async (req, res) => {
       setState(`${userId}_failcount`, 0);
       await replyMessage(event.replyToken, aiReply);
     }
+
   } catch (error) {
     console.error('Error:', error.message);
   }
