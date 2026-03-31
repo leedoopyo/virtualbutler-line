@@ -1,5 +1,4 @@
-places.js 213번째 줄에 한글이 코드로 들어간 거예요. GitHub에서 직접 수정이 어려우시면 제가 완전한 파일 드릴게요. 그냥 전체 교체하세요!
-javascriptimport { searchVBKPlaces } from './halal.js';
+import { searchVBKPlaces } from './halal.js';
 
 export const CATEGORY_MAP = {
   restaurant: 'FD6',
