@@ -145,7 +145,6 @@ function hasExplicitCategory(text = '', routeSearchType = '') {
   return categoryWords.some((w) => t.includes(w));
 }
 
-// 숫자 제거: 숫자는 server.js에서만 처리
 function isPrayerKeyword(text = '') {
   const t = text.trim().toLowerCase();
   const keywords = [
@@ -378,6 +377,7 @@ app.post('/webhook', async (req, res) => {
 
       if (event.message.type === 'image') {
         if (!lang) {
+          setState(userId, 'awaiting_language');
           await replyMessage(event.replyToken, languageSelectionMessage());
           continue;
         }
@@ -417,7 +417,14 @@ app.post('/webhook', async (req, res) => {
       const lowered = userText.toLowerCase();
       console.log(`[${userId}] ${userText}`);
 
-      const selectedLang = normalizeLanguageChoice(userText);
+      const currentState = getState(userId);
+
+      // 언어 선택은 awaiting_language 상태에서만
+      const selectedLang =
+        currentState === 'awaiting_language'
+          ? normalizeLanguageChoice(userText)
+          : null;
+
       if (selectedLang) {
         setSession(userId, selectedLang);
         setState(userId, null);
@@ -430,11 +437,13 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (!lang) {
+        if (!currentState) {
+          setState(userId, 'awaiting_language');
+        }
         await replyMessage(event.replyToken, languageSelectionMessage());
         continue;
       }
 
-      const currentState = getState(userId);
       const savedLocation = getLocation(userId);
 
       if (currentState === 'waiting_human') {
@@ -454,7 +463,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 숫자 메뉴 처리
       if (lowered === '1') {
         await replyMessage(
           event.replyToken,
@@ -550,7 +558,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 키워드 처리
       if (isHalalKeyword(userText)) {
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
