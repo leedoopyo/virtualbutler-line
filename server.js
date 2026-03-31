@@ -1,4 +1,5 @@
-import crypto from 'crypto';
+전체 코드 확인했습니다! 아래가 human 기능 추가된 완성본입니다.
+javascriptimport crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
 
@@ -11,6 +12,7 @@ import { isLocationRequest, locationReceivedMessage, detectSearchType } from './
 import { searchNearby, searchByKeyword, TYPE_LABEL } from './src/places.js';
 import { isEventRequest, searchEvents } from './src/events.js';
 import { detectIntent } from './src/router.js';
+import { isHumanRequest, incrementFailCount, resetFailCount, shouldEscalate, notifyHumanViaLine, humanRequestReply } from './src/human.js';
 
 dotenv.config();
 
@@ -297,7 +299,14 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 5. 문화행사 검색
+      // 5. 사람 도우미 호출 (키워드 직접 요청)
+      if (isHumanRequest(userText)) {
+        await notifyHumanViaLine({ userId, userMessage: userText, lang, reason: 'keyword' });
+        await replyMessage(event.replyToken, humanRequestReply(lang, 'keyword'));
+        continue;
+      }
+
+      // 6. 문화행사 검색
       if (route.intent === 'events' || isEventRequest(userText)) {
         try {
           const results = await searchEvents(userText, lang);
@@ -319,9 +328,8 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 6. 카테고리 대기 상태
+      // 7. 카테고리 대기 상태
       if (currentState === 'awaiting_category') {
-        // clarifyQuestion 있으면 먼저 확인 질문
         if (route.clarifyQuestion) {
           const translated = await translateClarify(route.clarifyQuestion, lang);
           setState(userId, 'awaiting_clarify:' + (route.searchType || 'general'));
@@ -350,7 +358,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 7. 명확화 대기 상태 (yes/no 응답)
+      // 8. 명확화 대기 상태
       if (currentState && currentState.startsWith('awaiting_clarify:')) {
         const pendingType = currentState.replace('awaiting_clarify:', '');
         const t = userText.toLowerCase();
@@ -386,7 +394,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 8. 이미지에서 위치 감지된 상태
+      // 9. 이미지에서 위치 감지된 상태
       if (currentState && currentState.startsWith('has_location:')) {
         const detectedLocation = currentState.replace('has_location:', '');
 
@@ -404,7 +412,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 9. 위치 대기 상태
+      // 10. 위치 대기 상태
       if (currentState && currentState.startsWith('awaiting_location')) {
         if (isCategoryOnly(userText)) {
           const newSearchType = getSafeSearchType(route.searchType || detectSearchType(userText));
@@ -423,7 +431,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 10. 저장된 위치 + 카테고리 입력
+      // 11. 저장된 위치 + 카테고리 입력
       if (savedLocation && isCategoryOnly(userText)) {
         if (route.clarifyQuestion) {
           const translated = await translateClarify(route.clarifyQuestion, lang);
@@ -448,12 +456,11 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 11. 장소 검색 의도
+      // 12. 장소 검색 의도
       if (route.intent === 'places' || isLocationRequest(userText)) {
         const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
         const categoryExplicit = hasExplicitCategory(userText, route.searchType);
 
-        // clarify 질문이 있으면 먼저 물어보기
         if (route.clarifyQuestion) {
           const translated = await translateClarify(route.clarifyQuestion, lang);
           setState(userId, 'awaiting_clarify:' + searchType);
@@ -503,8 +510,32 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 12. 일반 AI 응답
-      const aiReply = await generateReply(userText, lang);
+      // 13. 일반 AI 응답 + 실패 감지 자동 에스컬레이션
+      let aiReply = null;
+      try {
+        aiReply = await generateReply(userText, lang);
+      } catch (err) {
+        console.error('AI error:', err.message);
+      }
+
+      if (!aiReply) {
+        const session = { failCount: getState(userId + '_failcount') || 0 };
+        const failCount = incrementFailCount(session);
+        setState(userId + '_failcount', failCount);
+
+        if (shouldEscalate(session)) {
+          await notifyHumanViaLine({ userId, userMessage: userText, lang, reason: 'threshold' });
+          await replyMessage(event.replyToken, humanRequestReply(lang, 'threshold'));
+          setState(userId + '_failcount', 0);
+        } else {
+          await notifyHumanViaLine({ userId, userMessage: userText, lang, reason: 'ai_fail' });
+          await replyMessage(event.replyToken, humanRequestReply(lang, 'ai_fail'));
+        }
+        continue;
+      }
+
+      // AI 성공 시 실패 카운트 리셋
+      setState(userId + '_failcount', 0);
       await replyMessage(event.replyToken, aiReply);
     }
 
