@@ -37,6 +37,8 @@ import {
   getAdMessage,
 } from './src/curation.js';
 
+import { loadSheetsData, refreshSheetsData } from './src/sheets.js';
+
 dotenv.config();
 
 const { PORT = 3000, LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN } = process.env;
@@ -101,7 +103,7 @@ function getSafeSearchType(searchType = '') {
   const allowed = [
     'restaurant', 'cafe', 'convenience', 'culture', 'hotel',
     'attraction', 'subway', 'bank', 'mart', 'hospital',
-    'pharmacy', 'public', 'school', 'gas', 'parking', 'halal',
+    'pharmacy', 'public', 'school', 'gas', 'parking', 'halal', 'prayer',
   ];
   return allowed.includes(searchType) ? searchType : 'restaurant';
 }
@@ -208,7 +210,7 @@ async function sendHumanHandoff(replyToken, userId, userText, lang, reason) {
 
 async function handleSearch(replyToken, areaText, searchType, lang, originalUserText = '') {
   try {
-    const results = await searchByKeyword(areaText, searchType);
+    const results = await searchByKeyword(areaText, searchType, lang);
     const labelObj = TYPE_LABEL[searchType] || TYPE_LABEL.restaurant;
     const label = labelObj[lang] || labelObj.en;
     if (results) {
@@ -261,7 +263,6 @@ app.post('/webhook', async (req, res) => {
       const lang = getSession(userId);
       const currentState = getState(userId);
 
-      // waiting_human handler
       if (currentState === 'waiting_human') {
         if (event.message.type === 'text' && isEndHumanSession(event.message.text || '')) {
           setState(userId, null);
@@ -273,11 +274,11 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // location message
       if (event.message.type === 'location') {
         const { latitude, longitude, address } = event.message;
         const wantedType = currentState?.startsWith('awaiting_location_')
-          ? currentState.replace('awaiting_location_', '') : null;
+          ? currentState.replace('awaiting_location_', '')
+          : null;
 
         setLocation(userId, latitude, longitude, address || '');
         setState(userId, null);
@@ -303,7 +304,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // image message
       if (event.message.type === 'image') {
         if (!lang) {
           setState(userId, 'awaiting_language');
@@ -333,14 +333,12 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // text message
       if (event.message.type !== 'text') continue;
 
       const userText = (event.message.text || '').trim();
       const lowered = userText.toLowerCase();
       console.log(`[${userId}] ${userText}`);
 
-      // 1. language selection
       const selectedLang = currentState === 'awaiting_language' ? normalizeLanguageChoice(userText) : null;
       if (selectedLang) {
         setSession(userId, selectedLang);
@@ -349,7 +347,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 2. no language selected
       if (!lang) {
         if (!currentState) setState(userId, 'awaiting_language');
         await replyMessage(event.replyToken, languageSelectionMessage());
@@ -358,20 +355,17 @@ app.post('/webhook', async (req, res) => {
 
       const savedLocation = getLocation(userId);
 
-      // 3. menu request
       if (isMenuRequest(userText)) {
         await replyMessage(event.replyToken, getMainMenuMessage(lang));
         continue;
       }
 
-      // 4. emergency
       if (isEmergency(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('emergency', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'emergency');
         continue;
       }
 
-      // 5. number menu
       if (lowered === '1') {
         await replyMessage(event.replyToken, getMapWelcomeMessage(lang), getAdMessage(lang, 'main'), getMainMenuMessage(lang));
         continue;
@@ -495,7 +489,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 6. keyword detection
       if (isHumanRequest(userText)) {
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
         continue;
@@ -567,7 +560,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 7. state handling
       if (currentState === 'awaiting_category') {
         let searchType = getSafeSearchType(detectSearchType(userText));
         if (isPrayerKeyword(userText) || isHalalKeyword(userText)) searchType = 'halal';
@@ -673,7 +665,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 8. AI routing
       const route = await detectIntent(userText, lang);
 
       if (route.intent === 'emergency') {
@@ -705,7 +696,6 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 9. general AI reply
       let aiReply = null;
       try {
         aiReply = await generateReply(userText, lang);
@@ -729,10 +719,27 @@ app.post('/webhook', async (req, res) => {
       setState(`${userId}_failcount`, 0);
       await replyMessage(event.replyToken, aiReply);
     }
-
   } catch (error) {
     console.error('Error:', error.message);
   }
 });
 
-app.listen(PORT, () => console.log(`VirtualButler.Korea running on port ${PORT}`));
+async function bootstrap() {
+  try {
+    await loadSheetsData();
+    setInterval(async () => {
+      try {
+        await refreshSheetsData();
+      } catch (err) {
+        console.error('[Sheets] Refresh failed:', err.message);
+      }
+    }, 10 * 60 * 1000);
+
+    app.listen(PORT, () => console.log(`VirtualButler.Korea running on port ${PORT}`));
+  } catch (err) {
+    console.error('[Startup] Failed to load Sheets:', err.message);
+    app.listen(PORT, () => console.log(`VirtualButler.Korea running on port ${PORT} (without Sheets)`));
+  }
+}
+
+bootstrap();
