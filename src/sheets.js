@@ -3,8 +3,23 @@ import { google } from 'googleapis';
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
 const SHEET_NAME = process.env.GOOGLE_SHEET_NAME || 'places';
 
+function getGoogleCredentials() {
+  const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
+
+  if (!raw) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON is missing');
+  }
+
+  const creds = JSON.parse(raw);
+
+  return {
+    ...creds,
+    private_key: creds.private_key?.replace(/\\n/g, '\n'),
+  };
+}
+
 const auth = new google.auth.GoogleAuth({
-  keyFile: './config/google-service-account.json',
+  credentials: getGoogleCredentials(),
   scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
 });
 
@@ -50,6 +65,7 @@ export async function loadSheetsData() {
   });
 
   const rows = res.data.values || [];
+
   if (rows.length < 2) {
     cache = [];
     console.log('[Sheets] No rows found');
@@ -57,6 +73,7 @@ export async function loadSheetsData() {
   }
 
   const headers = rows[0];
+
   cache = rows
     .slice(1)
     .map((row) => {
