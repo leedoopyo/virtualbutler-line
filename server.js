@@ -36,9 +36,6 @@ import {
 import {
   MAP_LINK,
   MAP_INTRO,
-  WEEKLY_CURATION,
-  SERVICE_CATALOG,
-  AD_SLOTS,
   getWeeklyCurationMessage,
   getServiceMessage,
   getAdMessage,
@@ -64,7 +61,7 @@ async function replyMessage(replyToken, ...texts) {
     .filter(Boolean)
     .map((text) => ({ type: 'text', text }));
 
-  if (messages.length === 0) return;
+  if (!messages.length) return;
 
   const response = await fetch('https://api.line.me/v2/bot/message/reply', {
     method: 'POST',
@@ -89,6 +86,7 @@ function cleanLocationText(text = '') {
     .replace(/^near\s+/i, '')
     .replace(/^around\s+/i, '')
     .replace(/^cari\s+/i, '')
+    .replace(/^find\s+/i, '')
     .replace(/^찾아줘\s+/i, '')
     .trim();
 }
@@ -102,9 +100,10 @@ function isCategoryOnly(text = '') {
     'parking', 'gas', 'gas station', 'attraction',
     'halal food', 'halal restaurant',
     'prayer', 'prayer room', 'mosque', 'masjid', 'musholla', 'musolla', 'tempat sholat',
-    'hotel', 'restoran', 'kafe', 'apotek', 'rumah sakit', 'makanan halal',
+    'restoran', 'kafe', 'apotek', 'rumah sakit', 'makanan halal',
     '쇼핑', '할랄', '맛집', '식당', '카페', '병원', '약국', '호텔', '기도실', '모스크',
   ];
+
   const t = text.trim().toLowerCase();
   return categories.some((c) => t === c);
 }
@@ -183,7 +182,7 @@ function isShoppingRequest(text = '') {
 function isMenuRequest(text = '') {
   const t = text.trim().toLowerCase();
   const keywords = [
-    'menu', 'start', 'home', 'options', '0', 'back',
+    'menu', 'start', 'home', 'options', 'back',
     'mulai', 'bantuan', 'kembali',
     '메뉴', '처음', '홈',
   ];
@@ -216,8 +215,8 @@ function isGuideRequest(text = '') {
 }
 
 const ASK_LOCATION = {
-  en: '📍 Which area are you in?\n(e.g. Gangnam / Hongdae / Yongsan / Myeongdong)',
-  id: '📍 Kamu ada di area mana?\n(contoh: Gangnam / Hongdae / Yongsan / Myeongdong)',
+  en: '📍 Tell me your area.\n(e.g. Gangnam / Hongdae / Yongsan / Myeongdong)',
+  id: '📍 Kasih tahu area kamu.\n(contoh: Gangnam / Hongdae / Yongsan / Myeongdong)',
 };
 
 const ASK_CATEGORY = {
@@ -285,8 +284,8 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
     }
 
     const notFound = {
-      en: `😅 No results near "${areaText}". Try another area!`,
-      id: `😅 Tidak ada hasil dekat "${areaText}". Coba area lain ya!`,
+      en: `😅 No results near "${areaText}". Try another area.`,
+      id: `😅 Tidak ada hasil dekat "${areaText}". Coba area lain ya.`,
     };
     await replyMessage(replyToken, notFound[lang] || notFound.en);
   } catch (err) {
@@ -295,17 +294,24 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
   }
 }
 
-async function translateClarify(question, lang) {
-  if (!question || lang === 'en') return question;
+function buildMoreEventsPrompt(lang) {
+  const map = {
+    en: 'Type "more" if you want more event results.',
+    id: 'Ketik "more" kalau kamu mau lihat event tambahan.',
+  };
+  return map[lang] || map.en;
+}
 
-  try {
-    return await generateReply(
-      `Translate this short question naturally into Indonesian. Output only the translation:\n"${question}"`,
-      'id'
-    );
-  } catch {
-    return question;
-  }
+function buildNoMoreEventsMessage(lang) {
+  const map = {
+    en: '😅 I could not find more event data right now. Please check our curated map updates first.',
+    id: '😅 Saya belum menemukan event tambahan saat ini. Coba cek update map kami dulu ya.',
+  };
+  return map[lang] || map.en;
+}
+
+function routeSafeEmergency(userText = '') {
+  return isEmergency(userText);
 }
 
 app.get('/', (req, res) => {
@@ -351,9 +357,7 @@ app.post('/webhook', async (req, res) => {
               await replyMessage(
                 event.replyToken,
                 `${label} nearby:\n\n${results}`,
-                wantedType === 'prayer'
-                  ? MAP_LINK
-                  : (MAP_GUIDE[lang || 'en'] || MAP_GUIDE.en)
+                wantedType === 'prayer' ? MAP_LINK : (MAP_GUIDE[lang || 'en'] || MAP_GUIDE.en)
               );
             } else {
               await replyMessage(
@@ -453,6 +457,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 1. map only
       if (lowered === '1') {
         await replyMessage(
           event.replyToken,
@@ -463,47 +468,47 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 2. halal
       if (lowered === '2' || isHalalRequest(userText)) {
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
-        } else if (savedLocation?.lat && savedLocation?.lng) {
+          continue;
+        }
+
+        if (savedLocation?.lat && savedLocation?.lng) {
           const results = await searchNearby(savedLocation.lat, savedLocation.lng, 'halal');
           if (results) {
             const labelObj = TYPE_LABEL.halal || TYPE_LABEL.restaurant;
             const label = labelObj[lang] || labelObj.en;
-            await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
-          } else {
-            setState(userId, 'awaiting_location_halal');
             await replyMessage(
               event.replyToken,
-              MAP_INTRO[lang] || MAP_INTRO.en,
-              MAP_LINK,
-              ASK_LOCATION[lang] || ASK_LOCATION.en
+              `${label} nearby:\n\n${results}`,
+              MAP_GUIDE[lang] || MAP_GUIDE.en
             );
+            continue;
           }
-        } else {
-          setState(userId, 'awaiting_location_halal');
-          await replyMessage(
-            event.replyToken,
-            MAP_INTRO[lang] || MAP_INTRO.en,
-            MAP_LINK,
-            ASK_LOCATION[lang] || ASK_LOCATION.en
-          );
         }
-        continue;
-      }
 
-      if (lowered === '3' || isPrayerRequest(userText)) {
-        setState(userId, 'awaiting_location_prayer');
+        setState(userId, 'awaiting_location_halal');
         await replyMessage(
           event.replyToken,
-          getServiceMessage('prayer', lang),
-          MAP_LINK,
           ASK_LOCATION[lang] || ASK_LOCATION.en
         );
         continue;
       }
 
+      // 3. prayer / mosque
+      if (lowered === '3' || isPrayerRequest(userText)) {
+        setState(userId, 'awaiting_location_prayer');
+        await replyMessage(
+          event.replyToken,
+          getServiceMessage('prayer', lang),
+          ASK_LOCATION[lang] || ASK_LOCATION.en
+        );
+        continue;
+      }
+
+      // 4. events
       if (lowered === '4' || isEventRequest(userText)) {
         const curated = getWeeklyCurationMessage(lang);
         const adText = getAdMessage(lang, 'events');
@@ -511,7 +516,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      if (lowered === '4 more' || lowered === 'more events' || lowered === 'more') {
+      if (lowered === 'more' || lowered === 'more events' || lowered === '4 more') {
         try {
           const results = await searchEvents(userText, lang);
           if (results) {
@@ -526,6 +531,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 5. shopping
       if (lowered === '5' || isShoppingRequest(userText)) {
         await replyMessage(
           event.replyToken,
@@ -535,35 +541,41 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // 6. more services
       if (lowered === '6' || isServiceMenuRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMenuMessage(lang));
         continue;
       }
 
+      // 7. visa
       if (isVisaRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('visa', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'visa');
         continue;
       }
 
+      // 8. jobs
       if (isJobRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('jobs', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'jobs');
         continue;
       }
 
+      // 9. delivery
       if (isDeliveryRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('delivery', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'delivery');
         continue;
       }
 
+      // 10. guide
       if (isGuideRequest(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('guide', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'guide');
         continue;
       }
 
+      // 0. human
       if (lowered === '0' || isHumanRequest(userText)) {
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
         continue;
@@ -623,7 +635,6 @@ app.post('/webhook', async (req, res) => {
         if (savedType === 'prayer') savedType = 'halal';
 
         const searchType = getSafeSearchType(savedType || detectSearchType(userText));
-
         setState(userId, null);
 
         if (savedType === 'prayer') {
@@ -765,26 +776,6 @@ app.post('/webhook', async (req, res) => {
     console.error('Error:', error.message);
   }
 });
-
-function routeSafeEmergency(userText = '') {
-  return isEmergency(userText);
-}
-
-function buildMoreEventsPrompt(lang) {
-  const map = {
-    en: 'Type "more" if you want more event results from the Korea tourism feed.',
-    id: 'Ketik "more" kalau kamu mau lihat event tambahan dari feed pariwisata Korea.',
-  };
-  return map[lang] || map.en;
-}
-
-function buildNoMoreEventsMessage(lang) {
-  const map = {
-    en: '😅 I could not find more event data right now. Please check our curated map updates first.',
-    id: '😅 Saya belum menemukan event tambahan saat ini. Coba cek update map kami dulu ya.',
-  };
-  return map[lang] || map.en;
-}
 
 app.listen(PORT, () => {
   console.log(`VirtualButler.Korea running on port ${PORT}`);
