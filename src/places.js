@@ -111,34 +111,57 @@ function findAreaKeyword(areaKeyword = '') {
   if (t.includes('hongdae')) return 'hongdae';
   if (t.includes('gangnam')) return 'gangnam';
   if (t.includes('jongno')) return 'jongno';
+  if (t.includes('gwanghwamun')) return 'gwanghwamun';
+  if (t.includes('dongdaemun')) return 'dongdaemun';
+  if (t.includes('sinchon')) return 'sinchon';
   if (t.includes('jamsil')) return 'jamsil';
   if (t.includes('ansan')) return 'ansan';
   if (t.includes('suwon')) return 'suwon';
   if (t.includes('incheon')) return 'incheon';
+  if (t.includes('gwanak')) return 'gwanak';
+  if (t.includes('bucheon')) return 'bucheon';
 
   return t.trim();
 }
 
-function getSheetCategory(type = '') {
-  if (type === 'halal') return 'halal-restaurant';
-  if (type === 'prayer') return 'masjid';
-  return '';
+function getSheetCategories(type = '') {
+  if (type === 'halal') {
+    return [
+      'halal-restaurant',
+      'muslim-friendly',
+      'pork-free',
+    ];
+  }
+
+  if (type === 'prayer') {
+    return [
+      'masjid',
+      'prayer-room',
+    ];
+  }
+
+  return [];
 }
 
 function searchSheetsPlaces(areaKeyword, type = 'halal', language = 'en') {
-  const category = getSheetCategory(type);
+  const categories = getSheetCategories(type);
   const area = findAreaKeyword(areaKeyword);
 
-  if (!category) return null;
+  if (!categories.length) return null;
 
   const results = getPlacesFromSheets({
     area,
-    category,
+    categories,
     language,
+    searchType: type,
   });
 
   if (!results.length) return null;
-  return formatSheetPlaces(results.slice(0, 3));
+
+  return formatSheetPlaces(results, {
+    limit: 5,
+    showMeta: type === 'halal',
+  });
 }
 
 async function geocodeLocation(locationName) {
@@ -218,7 +241,7 @@ export async function searchByKeyword(areaKeyword, type = 'restaurant', language
       return vbkResult;
     }
 
-    console.log(`[VBK] No results in Sheets/VBK, falling back to Kakao`);
+    console.log('[VBK] No results in Sheets/VBK, falling back to Kakao');
   }
 
   if (!KAKAO_API_KEY) return null;
