@@ -1,5 +1,3 @@
-// server.js
-
 import crypto from 'crypto';
 import dotenv from 'dotenv';
 import express from 'express';
@@ -173,7 +171,6 @@ function isKpopKeyword(text = '') {
   return keywords.some((k) => text.toLowerCase().includes(k));
 }
 
-// 관리자가 대화 종료할 때 치는 키워드
 function isEndHumanSession(text = '') {
   return ['#end', '#done', '#bot', '#selesai'].includes(text.trim().toLowerCase());
 }
@@ -230,17 +227,20 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
 }
 
 function buildMoreEventsPrompt(lang) {
-  return { en: 'Type "more" for more events.', id: 'Ketik "more" untuk lihat event tambahan.' }[lang] || 'Type "more" for more events.';
+  return {
+    en: 'Type "more" for more events.',
+    id: 'Ketik "more" untuk lihat event tambahan.',
+  }[lang] || 'Type "more" for more events.';
 }
 
 function buildNoMoreEventsMessage(lang) {
   return {
-    en: '😅 No more events right now. Check our map for updates!',
-    id: '😅 Belum ada event tambahan. Cek update map kami ya!',
-  }[lang] || '😅 No more events right now.';
+    en: 'No more events right now. Check our map for updates!',
+    id: 'Belum ada event tambahan. Cek update map kami ya!',
+  }[lang] || 'No more events right now.';
 }
 
-app.get('/', (req, res) => res.status(200).send('VirtualButler.Korea is running 🇰🇷'));
+app.get('/', (req, res) => res.status(200).send('VirtualButler.Korea is running'));
 
 app.post('/webhook', async (req, res) => {
   console.log('Webhook received:', new Date().toISOString());
@@ -261,21 +261,19 @@ app.post('/webhook', async (req, res) => {
       const lang = getSession(userId);
       const currentState = getState(userId);
 
-      // ── waiting_human 상태 처리 ──
+      // waiting_human handler
       if (currentState === 'waiting_human') {
-        // 관리자가 #end 치면 봇 재활성화
         if (event.message.type === 'text' && isEndHumanSession(event.message.text || '')) {
           setState(userId, null);
           await replyMessage(event.replyToken, BACK_TO_BOT_MESSAGE[lang] || BACK_TO_BOT_MESSAGE.en);
           console.log(`[${userId}] Human session ended - bot reactivated`);
           continue;
         }
-        // 그 외엔 봇 완전 침묵
         console.log(`[${userId}] waiting_human - bot silent`);
         continue;
       }
 
-      // ── 위치 메시지 ──
+      // location message
       if (event.message.type === 'location') {
         const { latitude, longitude, address } = event.message;
         const wantedType = currentState?.startsWith('awaiting_location_')
@@ -305,7 +303,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // ── 이미지 메시지 ──
+      // image message
       if (event.message.type === 'image') {
         if (!lang) {
           setState(userId, 'awaiting_language');
@@ -320,26 +318,29 @@ app.post('/webhook', async (req, res) => {
           } else {
             setState(userId, 'awaiting_location_unknown');
             const followUp = {
-              en: `📍 Couldn't detect location. Please type your area.`,
-              id: `📍 Belum bisa baca lokasi. Tolong ketik area kamu.`,
+              en: 'Could not detect location. Please type your area.',
+              id: 'Belum bisa baca lokasi. Tolong ketik area kamu.',
             };
             await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
           }
         } catch {
-          const errorMsg = { en: '⚠️ Could not analyze image. Please try again.', id: '⚠️ Gagal analisis gambar. Coba lagi ya.' };
+          const errorMsg = {
+            en: 'Could not analyze image. Please try again.',
+            id: 'Gagal analisis gambar. Coba lagi ya.',
+          };
           await replyMessage(event.replyToken, errorMsg[lang] || errorMsg.en);
         }
         continue;
       }
 
-      // ── 텍스트 메시지 ──
+      // text message
       if (event.message.type !== 'text') continue;
 
       const userText = (event.message.text || '').trim();
       const lowered = userText.toLowerCase();
       console.log(`[${userId}] ${userText}`);
 
-      // 1. 언어 선택
+      // 1. language selection
       const selectedLang = currentState === 'awaiting_language' ? normalizeLanguageChoice(userText) : null;
       if (selectedLang) {
         setSession(userId, selectedLang);
@@ -348,7 +349,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 2. 언어 미선택
+      // 2. no language selected
       if (!lang) {
         if (!currentState) setState(userId, 'awaiting_language');
         await replyMessage(event.replyToken, languageSelectionMessage());
@@ -357,20 +358,20 @@ app.post('/webhook', async (req, res) => {
 
       const savedLocation = getLocation(userId);
 
-      // 3. 메뉴 요청
+      // 3. menu request
       if (isMenuRequest(userText)) {
         await replyMessage(event.replyToken, getMainMenuMessage(lang));
         continue;
       }
 
-      // 4. 긴급 상황
+      // 4. emergency
       if (isEmergency(userText)) {
         await replyMessage(event.replyToken, getServiceMessage('emergency', lang));
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'emergency');
         continue;
       }
 
-      // 5. 숫자 메뉴
+      // 5. number menu
       if (lowered === '1') {
         await replyMessage(event.replyToken, getMapWelcomeMessage(lang), getAdMessage(lang, 'main'), getMainMenuMessage(lang));
         continue;
@@ -433,8 +434,8 @@ app.post('/webhook', async (req, res) => {
 
       if (lowered === '10') {
         const kbeauty = {
-          en: `💄 K-Beauty Halal Check\n\nNot sure if a product is halal?\nSend me:\n→ Product name\n→ Brand name\n→ Or a photo of the ingredients\n\nI'll check for you! 🔍`,
-          id: `💄 Cek Halal K-Beauty\n\nTidak yakin produk halal atau tidak?\nKirim ke saya:\n→ Nama produk\n→ Nama brand\n→ Atau foto bahan-bahannya\n\nSaya cek untuk kamu! 🔍`,
+          en: 'K-Beauty Halal Check\n\nNot sure if a product is halal?\nSend me:\n- Product name\n- Brand name\n- Or a photo of the ingredients\n\nI will check for you!',
+          id: 'Cek Halal K-Beauty\n\nTidak yakin produk halal atau tidak?\nKirim ke saya:\n- Nama produk\n- Nama brand\n- Atau foto bahan-bahannya\n\nSaya cek untuk kamu!',
         };
         await replyMessage(event.replyToken, kbeauty[lang] || kbeauty.en);
         continue;
@@ -494,7 +495,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 6. 키워드 감지
+      // 6. keyword detection
       if (isHumanRequest(userText)) {
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
         continue;
@@ -566,7 +567,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 7. 상태별 처리
+      // 7. state handling
       if (currentState === 'awaiting_category') {
         let searchType = getSafeSearchType(detectSearchType(userText));
         if (isPrayerKeyword(userText) || isHalalKeyword(userText)) searchType = 'halal';
@@ -672,7 +673,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 8. AI 라우팅
+      // 8. AI routing
       const route = await detectIntent(userText, lang);
 
       if (route.intent === 'emergency') {
@@ -704,7 +705,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      // 9. 일반 AI 응답
+      // 9. general AI reply
       let aiReply = null;
       try {
         aiReply = await generateReply(userText, lang);
@@ -735,17 +736,3 @@ app.post('/webhook', async (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`VirtualButler.Korea running on port ${PORT}`));
-```
-
----
-
-**사용법 요약:**
-```
-유저 "help" 입력 → 봇 침묵
-내가 직접 대화
-끝나면 LINE Manager에서 "#end" 입력
-→ 유저에게 "봇으로 돌아왔어요" 메시지
-→ 다시 봇 응답 시작!
-
-종료 키워드:
-#end / #done / #bot / #selesai
