@@ -1,4 +1,8 @@
 import { searchVBKPlaces } from './halal.js';
+import {
+  getPlacesFromSheets,
+  formatSheetPlaces,
+} from './sheets.js';
 
 export const CATEGORY_MAP = {
   restaurant: 'FD6',
@@ -17,6 +21,7 @@ export const CATEGORY_MAP = {
   gas: 'OL7',
   parking: 'PK6',
   halal: 'FD6',
+  prayer: 'FD6',
 };
 
 export const QUERY_MAP = {
@@ -36,6 +41,7 @@ export const QUERY_MAP = {
   gas: 'gas station',
   parking: 'parking',
   halal: 'halal food',
+  prayer: 'prayer room',
 };
 
 export const TYPE_EMOJI = {
@@ -55,6 +61,7 @@ export const TYPE_EMOJI = {
   gas: '⛽',
   parking: '🅿️',
   halal: '🕌',
+  prayer: '🕌',
 };
 
 export const TYPE_LABEL = {
@@ -74,6 +81,7 @@ export const TYPE_LABEL = {
   gas: { en: '⛽ Gas stations', id: '⛽ SPBU' },
   parking: { en: '🅿️ Parking lots', id: '🅿️ Parkir' },
   halal: { en: '🕌 Halal food', id: '🕌 Makanan halal' },
+  prayer: { en: '🕌 Prayer places', id: '🕌 Tempat sholat' },
 };
 
 function kakaoMapLink(placeName, x, y) {
@@ -85,13 +93,52 @@ function kakaoMapLink(placeName, x, y) {
 
 function formatPlaces(places) {
   return places
-    .map((p, i) =>
-      `${i + 1}. ${p.place_name}\n` +
-      `   📍 ${p.road_address_name || p.address_name}\n` +
-      `   📞 ${p.phone || 'No phone'}\n` +
-      `   🗺️ ${kakaoMapLink(p.place_name, p.x, p.y)}`
+    .map(
+      (p, i) =>
+        `${i + 1}. ${p.place_name}\n` +
+        `   📍 ${p.road_address_name || p.address_name}\n` +
+        `   📞 ${p.phone || 'No phone'}\n` +
+        `   🗺️ ${kakaoMapLink(p.place_name, p.x, p.y)}`
     )
     .join('\n\n');
+}
+
+function findAreaKeyword(areaKeyword = '') {
+  const t = String(areaKeyword).toLowerCase();
+
+  if (t.includes('itaewon')) return 'itaewon';
+  if (t.includes('myeongdong')) return 'myeongdong';
+  if (t.includes('hongdae')) return 'hongdae';
+  if (t.includes('gangnam')) return 'gangnam';
+  if (t.includes('jongno')) return 'jongno';
+  if (t.includes('jamsil')) return 'jamsil';
+  if (t.includes('ansan')) return 'ansan';
+  if (t.includes('suwon')) return 'suwon';
+  if (t.includes('incheon')) return 'incheon';
+
+  return t.trim();
+}
+
+function getSheetCategory(type = '') {
+  if (type === 'halal') return 'halal-restaurant';
+  if (type === 'prayer') return 'masjid';
+  return '';
+}
+
+function searchSheetsPlaces(areaKeyword, type = 'halal', language = 'en') {
+  const category = getSheetCategory(type);
+  const area = findAreaKeyword(areaKeyword);
+
+  if (!category) return null;
+
+  const results = getPlacesFromSheets({
+    area,
+    category,
+    language,
+  });
+
+  if (!results.length) return null;
+  return formatSheetPlaces(results.slice(0, 3));
 }
 
 async function geocodeLocation(locationName) {
@@ -129,7 +176,7 @@ export async function searchNearby(lat, lng, type = 'restaurant') {
   if (type === 'halal' || type === 'prayer') {
     const vbkResult = searchVBKPlaces('', type);
     if (vbkResult) {
-      console.log('[VBK] Nearby halal results from VBK map');
+      console.log('[VBK] Nearby halal/prayer results from VBK map');
       return vbkResult;
     }
   }
@@ -155,16 +202,23 @@ export async function searchNearby(lat, lng, type = 'restaurant') {
   }
 }
 
-export async function searchByKeyword(areaKeyword, type = 'restaurant') {
+export async function searchByKeyword(areaKeyword, type = 'restaurant', language = 'en') {
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
 
   if (type === 'halal' || type === 'prayer') {
+    const sheetsResult = searchSheetsPlaces(areaKeyword, type, language);
+    if (sheetsResult) {
+      console.log(`[Sheets] Found in Sheets DB: ${areaKeyword}`);
+      return sheetsResult;
+    }
+
     const vbkResult = searchVBKPlaces(areaKeyword, type);
     if (vbkResult) {
       console.log(`[VBK] Found in VBK map: ${areaKeyword}`);
       return vbkResult;
     }
-    console.log(`[VBK] No results in VBK map, falling back to Kakao`);
+
+    console.log(`[VBK] No results in Sheets/VBK, falling back to Kakao`);
   }
 
   if (!KAKAO_API_KEY) return null;
