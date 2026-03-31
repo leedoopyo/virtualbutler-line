@@ -1,11 +1,13 @@
 const HUMAN_KEYWORDS = {
   ko: ['사람', '직원', '상담원', '도움말', '연결해줘', '사람이랑 얘기'],
-  en: ['human', 'agent', 'staff', 'real person', 'help me', 'connect me', 'talk to someone'],
-  vi: ['người thật', 'nhân viên', 'hỗ trợ trực tiếp'],
-  id: ['manusia', 'petugas', 'staf', 'bantuan langsung'],
-  mn: ['хүн', 'ажилтан', 'холбоно уу'],
+  en: [
+    'human', 'agent', 'staff', 'real person',
+    'help me', 'help', 'connect me', 'talk to someone',
+    'speak to someone', 'i need help', 'need help',
+    'speak someone', 'need to speak',
+  ],
+  id: ['manusia', 'petugas', 'staf', 'bantuan langsung', 'bantuan', 'tolong', 'minta bantuan'],
 };
-
 const FAIL_THRESHOLD = 3;
 
 export function isHumanRequest(text = '') {
