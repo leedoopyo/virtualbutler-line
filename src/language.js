@@ -1,3 +1,5 @@
+// src/language.js
+
 import { MAP_LINK, MAP_INTRO } from './curation.js';
 
 export function normalizeLanguageChoice(text = '') {
@@ -28,61 +30,113 @@ export function getMapWelcomeMessage(lang = 'en') {
 export function getMainMenuMessage(lang = 'en') {
   const menus = {
     en: `━━━━━━━━━━━━━━━
-What do you need now?
+🇰🇷 VirtualButler Korea
 
-1️⃣ Open our map
-2️⃣ Halal food near me
-3️⃣ Prayer room / Mosque
-4️⃣ Weekly events & things to do
-5️⃣ Shopping / deals
-6️⃣ More services
-7️⃣ Visa extension
-8️⃣ Job introduction
-9️⃣ Delivery service
-🔟 One-day guide
-0️⃣ Talk to our team
+I'm not just a bot.
+Behind me is a REAL human.
+I can actually DO things for you
+— not just give information! 🤝
 
-(Type a number or just tell me your need)`,
+What do you need?
 
+🗺️ MAP & GUIDE
+1️⃣ Open our halal & tourist map
+
+🕌 PRAYER
+2️⃣ Nearest prayer room / mosque
+3️⃣ Prayer times today
+
+🍽️ FOOD
+4️⃣ Halal food near me
+5️⃣ Special restaurant picks this week
+
+✈️ ARRIVAL
+6️⃣ From airport (SIM, transport, money)
+7️⃣ T-money & getting around Seoul
+
+🏨 STAY
+8️⃣ Muslim-friendly hotels & deals
+
+🛍️ SHOPPING
+9️⃣ Shopping & tax refund tips
+🔟 K-beauty halal check
+
+🏥 HEALTH & EMERGENCY
+1️⃣1️⃣ Sick? Hospital & pharmacy
+1️⃣2️⃣ Travel insurance
+1️⃣3️⃣ Emergency (lost passport, accident)
+
+🎤 ENTERTAINMENT
+1️⃣4️⃣ K-pop & drama filming spots
+1️⃣5️⃣ Free events this week
+
+🧳 OTHER SERVICES
+1️⃣6️⃣ Send package / cargo home
+1️⃣7️⃣ Visa extension
+1️⃣8️⃣ Job in Korea
+1️⃣9️⃣ One-day guide (VBK certified)
+
+0️⃣ Talk to me directly
+   (anything — I'm a real human!)
+━━━━━━━━━━━━━━━`,
     id: `━━━━━━━━━━━━━━━
-Kamu butuh apa sekarang?
+🇰🇷 VirtualButler Korea
 
-1️⃣ Buka map kami
-2️⃣ Makanan halal dekat sini
-3️⃣ Tempat sholat / Masjid
-4️⃣ Event mingguan & tempat seru
-5️⃣ Shopping / promo
-6️⃣ Layanan lainnya
-7️⃣ Perpanjangan visa
-8️⃣ Job introduction
-9️⃣ Delivery service
-🔟 One-day guide
-0️⃣ Hubungi tim kami
+Saya bukan sekadar bot.
+Di balik saya ada MANUSIA sungguhan.
+Saya bisa BENAR-BENAR melakukan sesuatu
+— bukan cuma kasih info! 🤝
 
-(Ketik angka atau langsung tulis kebutuhan kamu)`,
+Kamu butuh apa?
+
+🗺️ PETA & PANDUAN
+1️⃣ Buka peta halal & wisata kami
+
+🕌 IBADAH
+2️⃣ Tempat sholat / Masjid terdekat
+3️⃣ Jadwal waktu sholat hari ini
+
+🍽️ MAKAN
+4️⃣ Makanan halal dekat sini
+5️⃣ Rekomendasi restoran spesial minggu ini
+
+✈️ KEDATANGAN
+6️⃣ Dari bandara (SIM, transport, uang)
+7️⃣ T-money & keliling Seoul
+
+🏨 MENGINAP
+8️⃣ Hotel ramah Muslim & promo
+
+🛍️ BELANJA
+9️⃣ Shopping & tips tax refund
+🔟 Cek bahan halal K-beauty
+
+🏥 KESEHATAN & DARURAT
+1️⃣1️⃣ Sakit? Rumah sakit & apotek
+1️⃣2️⃣ Asuransi perjalanan
+1️⃣3️⃣ Darurat (paspor hilang, kecelakaan)
+
+🎤 HIBURAN
+1️⃣4️⃣ Spot K-pop & lokasi syuting drama
+1️⃣5️⃣ Event gratis minggu ini
+
+🧳 LAYANAN LAINNYA
+1️⃣6️⃣ Kirim barang / kargo ke Indonesia
+1️⃣7️⃣ Perpanjangan visa
+1️⃣8️⃣ Cari kerja di Korea
+1️⃣9️⃣ One-day guide (tersertifikasi VBK)
+
+0️⃣ Hubungi saya langsung
+   (apapun — saya manusia sungguhan!)
+━━━━━━━━━━━━━━━`,
   };
-
   return menus[lang] || menus.en;
 }
 
 export function getServiceMenuMessage(lang = 'en') {
   const menus = {
-    en: `🧩 More services
-
-7️⃣ Visa extension
-8️⃣ Job introduction
-9️⃣ Delivery service
-🔟 One-day guide
-0️⃣ Talk to our team`,
-
-    id: `🧩 Layanan tambahan
-
-7️⃣ Perpanjangan visa
-8️⃣ Job introduction
-9️⃣ Delivery service
-🔟 One-day guide
-0️⃣ Hubungi tim kami`,
+    en: `🧳 Other Services\n\n1️⃣6️⃣ Send package / cargo home\n1️⃣7️⃣ Visa extension\n1️⃣8️⃣ Job in Korea\n1️⃣9️⃣ One-day guide (VBK certified)\n\n0️⃣ Talk to me directly`,
+    id: `🧳 Layanan Lainnya\n\n1️⃣6️⃣ Kirim barang / kargo ke Indonesia\n1️⃣7️⃣ Perpanjangan visa\n1️⃣8️⃣ Cari kerja di Korea\n1️⃣9️⃣ One-day guide (tersertifikasi VBK)\n\n0️⃣ Hubungi saya langsung`,
   };
-
   return menus[lang] || menus.en;
 }
