@@ -13,15 +13,14 @@ import {
   languageSelectionMessage,
   getMainMenuMessage,
   getMapWelcomeMessage,
-  getServiceMenuMessage,
 } from './src/language.js';
 
-import { isEmergency, emergencyReply } from './src/emergency.js';
+import { isEmergency } from './src/emergency.js';
 import { generateReply } from './src/ai.js';
 import { analyzeImage } from './src/vision.js';
 import { isLocationRequest, locationReceivedMessage, detectSearchType } from './src/location.js';
 import { searchNearby, searchByKeyword, TYPE_LABEL } from './src/places.js';
-import { isEventRequest, searchEvents } from './src/events.js';
+import { searchEvents } from './src/events.js';
 import { detectIntent } from './src/router.js';
 import {
   isHumanRequest,
@@ -31,7 +30,6 @@ import {
 } from './src/human.js';
 
 import {
-  MAP_LINK,
   getWeeklyCurationMessage,
   getServiceMessage,
   getAdMessage,
@@ -41,18 +39,28 @@ import { loadSheetsData, refreshSheetsData } from './src/sheets.js';
 
 dotenv.config();
 
-const { PORT = 3000, LINE_CHANNEL_SECRET, LINE_CHANNEL_ACCESS_TOKEN } = process.env;
+const {
+  PORT = 3000,
+  LINE_CHANNEL_SECRET,
+  LINE_CHANNEL_ACCESS_TOKEN,
+} = process.env;
 
 const app = express();
 app.use('/webhook', express.raw({ type: '*/*' }));
 
 function verifyLineSignature(channelSecret, rawBody, signature) {
-  const hash = crypto.createHmac('sha256', channelSecret).update(rawBody).digest('base64');
+  const hash = crypto
+    .createHmac('sha256', channelSecret)
+    .update(rawBody)
+    .digest('base64');
   return hash === signature;
 }
 
 async function replyMessage(replyToken, ...texts) {
-  const messages = texts.filter(Boolean).map((text) => ({ type: 'text', text }));
+  const messages = texts
+    .filter(Boolean)
+    .map((text) => ({ type: 'text', text }));
+
   if (!messages.length) return;
 
   const response = await fetch('https://api.line.me/v2/bot/message/reply', {
@@ -66,14 +74,20 @@ async function replyMessage(replyToken, ...texts) {
 
   const resultText = await response.text();
   console.log('LINE reply:', response.status, resultText);
-  if (!response.ok) throw new Error(`LINE reply failed: ${response.status} ${resultText}`);
+
+  if (!response.ok) {
+    throw new Error(`LINE reply failed: ${response.status} ${resultText}`);
+  }
 }
 
 function cleanLocationText(text = '') {
   return text
-    .replace(/^nearby\s+/i, '').replace(/^near\s+/i, '')
-    .replace(/^around\s+/i, '').replace(/^cari\s+/i, '')
-    .replace(/^find\s+/i, '').replace(/^찾아줘\s+/i, '')
+    .replace(/^nearby\s+/i, '')
+    .replace(/^near\s+/i, '')
+    .replace(/^around\s+/i, '')
+    .replace(/^cari\s+/i, '')
+    .replace(/^find\s+/i, '')
+    .replace(/^찾아줘\s+/i, '')
     .trim();
 }
 
@@ -87,6 +101,7 @@ function isCategoryOnly(text = '') {
     'mosque', 'masjid', 'musholla', 'tempat sholat',
     'restoran', 'kafe', 'apotek', 'rumah sakit', 'makanan halal',
   ];
+
   const t = text.trim().toLowerCase();
   return categories.some((c) => t === c);
 }
@@ -94,8 +109,10 @@ function isCategoryOnly(text = '') {
 function looksLikeLocation(text = '') {
   const t = text.trim().toLowerCase();
   if (!t) return false;
+
   const keywords = ['station', 'stn', 'exit', 'dong', 'gu', 'ro', 'gil', '역', '동', '구', '로', '길'];
   if (keywords.some((k) => t.includes(k))) return true;
+
   return text.trim().length <= 30 && /^[a-zA-Z0-9\s\-]+$/.test(text.trim());
 }
 
@@ -110,22 +127,30 @@ function getSafeSearchType(searchType = '') {
 
 function hasExplicitCategory(text = '', routeSearchType = '') {
   if (routeSearchType && routeSearchType !== 'restaurant') return true;
+
   const categoryWords = [
     'hotel', 'cafe', 'coffee', 'pharmacy', 'hospital', 'halal',
     'movie', 'cinema', 'museum', 'convenience', 'mart', 'bank',
     'prayer', 'mosque', 'masjid', 'musholla',
     'restoran', 'kafe', 'apotek', 'makanan halal',
   ];
+
   return categoryWords.some((w) => text.toLowerCase().includes(w));
 }
 
 function isPrayerKeyword(text = '') {
-  const keywords = ['prayer', 'prayer room', 'mosque', 'masjid', 'tempat sholat', 'shalat', 'musholla', '기도', '기도실', '모스크'];
+  const keywords = [
+    'prayer', 'prayer room', 'mosque', 'masjid', 'tempat sholat',
+    'shalat', 'musholla', '기도', '기도실', '모스크',
+  ];
   return keywords.some((k) => text.toLowerCase().includes(k));
 }
 
 function isHalalKeyword(text = '') {
-  const keywords = ['halal', 'halal food', 'halal restaurant', 'makanan halal', 'restoran halal', '할랄'];
+  const keywords = [
+    'halal', 'halal food', 'halal restaurant',
+    'makanan halal', 'restoran halal', '할랄',
+  ];
   return keywords.some((k) => text.toLowerCase().includes(k));
 }
 
@@ -183,8 +208,8 @@ const ASK_LOCATION = {
 };
 
 const ASK_CATEGORY = {
-  en: (area) => `📍 You're near "${area}"!\nWhat are you looking for?\n\n2️⃣ Halal food\n3️⃣ Prayer room\n4️⃣ Events\n5️⃣ Shopping\n6️⃣ Other`,
-  id: (area) => `📍 Kamu dekat "${area}"!\nKamu cari apa?\n\n2️⃣ Makanan halal\n3️⃣ Tempat sholat\n4️⃣ Event\n5️⃣ Shopping\n6️⃣ Lainnya`,
+  en: (area) => `📍 You're near "${area}"!\nWhat do you need?\n\n2️⃣ Nearest prayer room / mosque\n4️⃣ Halal food near me\n5️⃣ Special restaurant picks this week\n9️⃣ Shopping tips\n1️⃣5️⃣ Free events this week`,
+  id: (area) => `📍 Kamu dekat "${area}"!\nKamu butuh apa?\n\n2️⃣ Tempat sholat / masjid terdekat\n4️⃣ Makanan halal dekat saya\n5️⃣ Rekomendasi restoran spesial minggu ini\n9️⃣ Tips belanja\n1️⃣5️⃣ Event gratis minggu ini`,
 };
 
 const MAP_GUIDE = {
@@ -213,14 +238,21 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
     const results = await searchByKeyword(areaText, searchType, lang);
     const labelObj = TYPE_LABEL[searchType] || TYPE_LABEL.restaurant;
     const label = labelObj[lang] || labelObj.en;
+
     if (results) {
-      await replyMessage(replyToken, `${label} near "${areaText}":\n\n${results}`, MAP_GUIDE[lang] || MAP_GUIDE.en);
+      await replyMessage(
+        replyToken,
+        `${label} near "${areaText}":\n\n${results}`,
+        MAP_GUIDE[lang] || MAP_GUIDE.en
+      );
       return;
     }
+
     const notFound = {
       en: `😅 No results near "${areaText}". Try another area.`,
       id: `😅 Tidak ada hasil dekat "${areaText}". Coba area lain ya.`,
     };
+
     await replyMessage(replyToken, notFound[lang] || notFound.en);
   } catch (err) {
     console.error('Search failed:', err.message);
@@ -242,7 +274,9 @@ function buildNoMoreEventsMessage(lang) {
   }[lang] || 'No more events right now.';
 }
 
-app.get('/', (req, res) => res.status(200).send('VirtualButler.Korea is running'));
+app.get('/', (req, res) => {
+  res.status(200).send('VirtualButler.Korea is running');
+});
 
 app.post('/webhook', async (req, res) => {
   console.log('Webhook received:', new Date().toISOString());
@@ -285,21 +319,35 @@ app.post('/webhook', async (req, res) => {
 
         if (wantedType && wantedType !== 'unknown') {
           try {
-            const actualType = wantedType === 'prayer' ? 'halal' : wantedType;
+            const actualType = wantedType === 'prayer' ? 'prayer' : wantedType;
             const results = await searchNearby(latitude, longitude, actualType);
             const labelObj = TYPE_LABEL[actualType] || TYPE_LABEL.restaurant;
             const label = labelObj[lang || 'en'] || labelObj.en;
+
             if (results) {
-              await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang || 'en']);
+              await replyMessage(
+                event.replyToken,
+                `${label} nearby:\n\n${results}`,
+                MAP_GUIDE[lang || 'en']
+              );
             } else {
-              await replyMessage(event.replyToken, locationReceivedMessage(lang || 'en', address || 'Current location'));
+              await replyMessage(
+                event.replyToken,
+                locationReceivedMessage(lang || 'en', address || 'Current location')
+              );
             }
           } catch {
-            await replyMessage(event.replyToken, locationReceivedMessage(lang || 'en', address || 'Current location'));
+            await replyMessage(
+              event.replyToken,
+              locationReceivedMessage(lang || 'en', address || 'Current location')
+            );
           }
         } else {
           setState(userId, 'awaiting_category');
-          await replyMessage(event.replyToken, (ASK_CATEGORY[lang || 'id'] || ASK_CATEGORY.id)(address || 'your location'));
+          await replyMessage(
+            event.replyToken,
+            (ASK_CATEGORY[lang || 'id'] || ASK_CATEGORY.id)(address || 'your location')
+          );
         }
         continue;
       }
@@ -310,11 +358,17 @@ app.post('/webhook', async (req, res) => {
           await replyMessage(event.replyToken, languageSelectionMessage());
           continue;
         }
+
         try {
           const { text: analysisText, location: detectedLocation } = await analyzeImage(event.message.id, lang);
+
           if (detectedLocation && detectedLocation.toLowerCase() !== 'unknown') {
             setState(userId, `has_location:${detectedLocation}`);
-            await replyMessage(event.replyToken, analysisText, (ASK_CATEGORY[lang] || ASK_CATEGORY.en)(detectedLocation));
+            await replyMessage(
+              event.replyToken,
+              analysisText,
+              (ASK_CATEGORY[lang] || ASK_CATEGORY.en)(detectedLocation)
+            );
           } else {
             setState(userId, 'awaiting_location_unknown');
             const followUp = {
@@ -339,11 +393,18 @@ app.post('/webhook', async (req, res) => {
       const lowered = userText.toLowerCase();
       console.log(`[${userId}] ${userText}`);
 
-      const selectedLang = currentState === 'awaiting_language' ? normalizeLanguageChoice(userText) : null;
+      const selectedLang = currentState === 'awaiting_language'
+        ? normalizeLanguageChoice(userText)
+        : null;
+
       if (selectedLang) {
         setSession(userId, selectedLang);
         setState(userId, null);
-        await replyMessage(event.replyToken, getMapWelcomeMessage(selectedLang), getMainMenuMessage(selectedLang));
+        await replyMessage(
+          event.replyToken,
+          getMapWelcomeMessage(selectedLang),
+          getMainMenuMessage(selectedLang)
+        );
         continue;
       }
 
@@ -367,11 +428,39 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (lowered === '1') {
-        await replyMessage(event.replyToken, getMapWelcomeMessage(lang), getAdMessage(lang, 'main'), getMainMenuMessage(lang));
+        await replyMessage(
+          event.replyToken,
+          getMapWelcomeMessage(lang),
+          getMainMenuMessage(lang)
+        );
         continue;
       }
 
       if (lowered === '2') {
+        if (savedLocation?.address) {
+          await handleSearch(event.replyToken, savedLocation.address, 'prayer', lang, userText);
+        } else if (savedLocation?.lat && savedLocation?.lng) {
+          const results = await searchNearby(savedLocation.lat, savedLocation.lng, 'prayer');
+          if (results) {
+            const label = (TYPE_LABEL.prayer || TYPE_LABEL.halal)[lang] || (TYPE_LABEL.prayer || TYPE_LABEL.halal).en;
+            await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
+          } else {
+            setState(userId, 'awaiting_location_prayer');
+            await replyMessage(event.replyToken, getServiceMessage('prayer', lang));
+          }
+        } else {
+          setState(userId, 'awaiting_location_prayer');
+          await replyMessage(event.replyToken, getServiceMessage('prayer', lang));
+        }
+        continue;
+      }
+
+      if (lowered === '3') {
+        await replyMessage(event.replyToken, getServiceMessage('prayer_times', lang) || getServiceMessage('prayer', lang));
+        continue;
+      }
+
+      if (lowered === '4') {
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
         } else if (savedLocation?.lat && savedLocation?.lng) {
@@ -381,23 +470,12 @@ app.post('/webhook', async (req, res) => {
             await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
           } else {
             setState(userId, 'awaiting_location_halal');
-            await replyMessage(event.replyToken, getServiceMessage('halal', lang));
+            await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
           }
         } else {
           setState(userId, 'awaiting_location_halal');
-          await replyMessage(event.replyToken, getServiceMessage('halal', lang));
+          await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
         }
-        continue;
-      }
-
-      if (lowered === '3') {
-        setState(userId, 'awaiting_location_prayer');
-        await replyMessage(event.replyToken, getServiceMessage('prayer', lang));
-        continue;
-      }
-
-      if (lowered === '4') {
-        await replyMessage(event.replyToken, getWeeklyCurationMessage(lang), getAdMessage(lang, 'events'), buildMoreEventsPrompt(lang));
         continue;
       }
 
@@ -456,7 +534,20 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (lowered === '15') {
-        await replyMessage(event.replyToken, getWeeklyCurationMessage(lang), getAdMessage(lang, 'events'));
+        try {
+          const results = await searchEvents(userText, lang);
+          await replyMessage(
+            event.replyToken,
+            getWeeklyCurationMessage(lang),
+            results || buildNoMoreEventsMessage(lang)
+          );
+        } catch {
+          await replyMessage(
+            event.replyToken,
+            getWeeklyCurationMessage(lang),
+            buildNoMoreEventsMessage(lang)
+          );
+        }
         continue;
       }
 
@@ -545,8 +636,21 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (isPrayerKeyword(userText)) {
-        setState(userId, 'awaiting_location_prayer');
-        await replyMessage(event.replyToken, getServiceMessage('prayer', lang));
+        if (savedLocation?.address) {
+          await handleSearch(event.replyToken, savedLocation.address, 'prayer', lang, userText);
+        } else if (savedLocation?.lat && savedLocation?.lng) {
+          const results = await searchNearby(savedLocation.lat, savedLocation.lng, 'prayer');
+          if (results) {
+            const label = (TYPE_LABEL.prayer || TYPE_LABEL.halal)[lang] || (TYPE_LABEL.prayer || TYPE_LABEL.halal).en;
+            await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
+          } else {
+            setState(userId, 'awaiting_location_prayer');
+            await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
+          }
+        } else {
+          setState(userId, 'awaiting_location_prayer');
+          await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
+        }
         continue;
       }
 
@@ -562,12 +666,16 @@ app.post('/webhook', async (req, res) => {
 
       if (currentState === 'awaiting_category') {
         let searchType = getSafeSearchType(detectSearchType(userText));
-        if (isPrayerKeyword(userText) || isHalalKeyword(userText)) searchType = 'halal';
+        if (isPrayerKeyword(userText)) searchType = 'prayer';
+        if (isHalalKeyword(userText)) searchType = 'halal';
+
         setState(userId, null);
         const loc = getLocation(userId);
+
         if (loc?.lat && loc?.lng) {
           const results = await searchNearby(loc.lat, loc.lng, searchType);
           const label = (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant)[lang] || (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant).en;
+
           if (results) {
             await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
           } else {
@@ -585,7 +693,9 @@ app.post('/webhook', async (req, res) => {
       if (currentState?.startsWith('has_location:')) {
         const detectedLocation = currentState.replace('has_location:', '');
         let searchType = getSafeSearchType(detectSearchType(userText));
-        if (isPrayerKeyword(userText) || isHalalKeyword(userText)) searchType = 'halal';
+        if (isPrayerKeyword(userText)) searchType = 'prayer';
+        if (isHalalKeyword(userText)) searchType = 'halal';
+
         setState(userId, null);
         await handleSearch(event.replyToken, detectedLocation, searchType, lang, userText);
         continue;
@@ -594,14 +704,17 @@ app.post('/webhook', async (req, res) => {
       if (currentState?.startsWith('awaiting_location')) {
         if (isCategoryOnly(userText)) {
           let newType = getSafeSearchType(detectSearchType(userText));
-          if (isPrayerKeyword(userText) || isHalalKeyword(userText)) newType = 'halal';
+          if (isPrayerKeyword(userText)) newType = 'prayer';
+          if (isHalalKeyword(userText)) newType = 'halal';
+
           setState(userId, `awaiting_location_${newType}`);
           await replyMessage(event.replyToken, ASK_LOCATION[lang] || ASK_LOCATION.en);
           continue;
         }
+
         let savedType = currentState.replace('awaiting_location_', '');
-        if (savedType === 'prayer') savedType = 'halal';
         const searchType = getSafeSearchType(savedType || detectSearchType(userText));
+
         setState(userId, null);
         await handleSearch(event.replyToken, userText, searchType, lang, userText);
         continue;
@@ -609,12 +722,15 @@ app.post('/webhook', async (req, res) => {
 
       if (savedLocation && isCategoryOnly(userText)) {
         let searchType = getSafeSearchType(detectSearchType(userText));
-        if (isPrayerKeyword(userText) || isHalalKeyword(userText)) searchType = 'halal';
+        if (isPrayerKeyword(userText)) searchType = 'prayer';
+        if (isHalalKeyword(userText)) searchType = 'halal';
+
         if (savedLocation.address) {
           await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
         } else if (savedLocation.lat && savedLocation.lng) {
           const results = await searchNearby(savedLocation.lat, savedLocation.lng, searchType);
           const label = (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant)[lang] || (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant).en;
+
           if (results) {
             await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
           } else {
@@ -625,8 +741,13 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (isLocationRequest(userText)) {
-        const searchType = getSafeSearchType(detectSearchType(userText));
-        const categoryExplicit = hasExplicitCategory(userText);
+        const routeDetectedType = detectSearchType(userText);
+        let searchType = getSafeSearchType(routeDetectedType);
+        const categoryExplicit = hasExplicitCategory(userText, routeDetectedType);
+
+        if (isPrayerKeyword(userText)) searchType = 'prayer';
+        if (isHalalKeyword(userText)) searchType = 'halal';
+
         if (savedLocation?.address) {
           if (categoryExplicit) {
             await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
@@ -638,6 +759,7 @@ app.post('/webhook', async (req, res) => {
           if (categoryExplicit) {
             const results = await searchNearby(savedLocation.lat, savedLocation.lng, searchType);
             const label = (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant)[lang] || (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant).en;
+
             if (results) {
               await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
             } else {
@@ -675,7 +797,11 @@ app.post('/webhook', async (req, res) => {
       if (route.intent === 'events') {
         try {
           const results = await searchEvents(userText, lang);
-          await replyMessage(event.replyToken, getWeeklyCurationMessage(lang), results || buildNoMoreEventsMessage(lang));
+          await replyMessage(
+            event.replyToken,
+            getWeeklyCurationMessage(lang),
+            results || buildNoMoreEventsMessage(lang)
+          );
         } catch {
           await replyMessage(event.replyToken, getWeeklyCurationMessage(lang));
         }
@@ -683,8 +809,12 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (route.intent === 'places') {
-        const searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
+        let searchType = getSafeSearchType(route.searchType || detectSearchType(userText));
+        if (isPrayerKeyword(userText)) searchType = 'prayer';
+        if (isHalalKeyword(userText)) searchType = 'halal';
+
         const areaText = cleanLocationText(userText);
+
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, searchType, lang, userText);
         } else if (looksLikeLocation(areaText)) {
@@ -707,6 +837,7 @@ app.post('/webhook', async (req, res) => {
         const session = { failCount: getState(`${userId}_failcount`) || 0 };
         const failCount = incrementFailCount(session);
         setState(`${userId}_failcount`, failCount);
+
         if (shouldEscalate(session)) {
           await sendHumanHandoff(event.replyToken, userId, userText, lang, 'threshold');
           setState(`${userId}_failcount`, 0);
@@ -727,6 +858,7 @@ app.post('/webhook', async (req, res) => {
 async function bootstrap() {
   try {
     await loadSheetsData();
+
     setInterval(async () => {
       try {
         await refreshSheetsData();
@@ -735,10 +867,14 @@ async function bootstrap() {
       }
     }, 10 * 60 * 1000);
 
-    app.listen(PORT, () => console.log(`VirtualButler.Korea running on port ${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`VirtualButler.Korea running on port ${PORT}`);
+    });
   } catch (err) {
     console.error('[Startup] Failed to load Sheets:', err.message);
-    app.listen(PORT, () => console.log(`VirtualButler.Korea running on port ${PORT} (without Sheets)`));
+    app.listen(PORT, () => {
+      console.log(`VirtualButler.Korea running on port ${PORT} (without sheets)`);
+    });
   }
 }
 
