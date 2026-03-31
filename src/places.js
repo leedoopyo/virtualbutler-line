@@ -109,8 +109,6 @@ async function geocodeLocation(locationName) {
     const place = data.documents?.[0];
     if (!place) return null;
 
-    console.log(`Geocoded "${locationName}" → ${place.place_name} (${place.y}, ${place.x})`);
-
     return {
       lat: parseFloat(place.y),
       lng: parseFloat(place.x),
@@ -151,16 +149,12 @@ export async function searchByKeyword(areaKeyword, type = 'restaurant') {
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
   if (!KAKAO_API_KEY) return null;
 
-  console.log(`searchByKeyword: "${areaKeyword}" / type: ${type}`);
-
   const geo = await geocodeLocation(areaKeyword);
 
   if (geo) {
     const results = await searchNearby(geo.lat, geo.lng, type);
     if (results) return results;
   }
-
-  console.log(`Fallback to keyword search: "${areaKeyword} ${QUERY_MAP[type]}"`);
 
   const queryWord = QUERY_MAP[type] || '맛집';
   const searchQuery = `${areaKeyword} ${queryWord}`;
