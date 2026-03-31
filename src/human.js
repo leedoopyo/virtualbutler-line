@@ -1,3 +1,5 @@
+// src/human.js
+
 const HUMAN_KEYWORDS = {
   ko: ['사람', '직원', '상담원', '도움말', '연결해줘', '사람이랑 얘기'],
   en: [
@@ -45,6 +47,8 @@ export async function notifyHumanViaLine({ userId, userMessage, lang, reason }) 
     jobs: '직업 소개 문의',
     delivery: '물품 배달 문의',
     guide: '하루 가이드 문의',
+    transport: '교통/길찾기 문의',
+    emergency: '긴급 상황',
   }[reason] || reason;
 
   const message = [
@@ -54,6 +58,9 @@ export async function notifyHumanViaLine({ userId, userMessage, lang, reason }) 
     `👤 사용자 ID: ${userId}`,
     `💬 마지막 메시지: ${userMessage}`,
     `🕐 시각: ${new Date().toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' })}`,
+    '',
+    '💡 대화 종료 후 봇 재활성화:',
+    '→ LINE Manager에서 유저에게 "#end" 입력',
   ].join('\n');
 
   try {
@@ -74,10 +81,10 @@ export async function notifyHumanViaLine({ userId, userMessage, lang, reason }) 
       return false;
     }
 
-    console.log(`[HUMAN] Notified helper via LINE. reason=${reason}, userId=${userId}`);
+    console.log(`[HUMAN] Notified. reason=${reason}, userId=${userId}`);
     return true;
   } catch (err) {
-    console.error('[HUMAN] notifyHumanViaLine error:', err);
+    console.error('[HUMAN] error:', err);
     return false;
   }
 }
