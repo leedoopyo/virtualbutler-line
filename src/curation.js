@@ -1,4 +1,4 @@
-export const MAP_LINK = 'https://www.google.com/maps/d/u/0/edit?mid=1Hh1Cm8MlGjqKsI8Ok60UQeiY0mOB0mo&usp=sharing';
+export const MAP_LINK = 'https://www.google.com/maps/d/u/0/viewer?mid=1Hh1Cm8MlGjqKsI8Ok60UQeiY0mOB0mo&ll=37.524909532129115%2C127.22392225000002&z=11';
 
 export const WEEKLY_CURATION = {
   week: '2026-03-31',
