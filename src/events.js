@@ -121,13 +121,11 @@ export async function searchEvents(userText, lang) {
   const today = getTodayString();
   const area = detectArea(userText);
 
-  // 지역 감지된 경우 해당 지역 먼저 검색
   if (area) {
     const items = await fetchEvents(TOUR_API_KEY, today, area.code);
     if (items) {
       return formatHeader(area.name, lang) + formatEventList(items);
     }
-    // 해당 지역 결과 없으면 전국 재검색
     console.log(`No events in ${area.name}, retrying nationwide`);
     const nationwideItems = await fetchEvents(TOUR_API_KEY, today);
     if (nationwideItems) {
@@ -136,7 +134,6 @@ export async function searchEvents(userText, lang) {
     return formatNoResult(lang);
   }
 
-  // 지역 미감지 → 전국 검색
   const items = await fetchEvents(TOUR_API_KEY, today);
   if (items) {
     return formatHeader('Korea', lang) + formatEventList(items);
