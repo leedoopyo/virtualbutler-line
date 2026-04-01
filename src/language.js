@@ -26,7 +26,6 @@ export function getMapWelcomeMessage(lang = 'en') {
   ].join('\n');
 }
 
-// ✅ 새로 추가: 최초 방문자용 How to use 메시지
 export function getHowToUseMessage(lang = 'en') {
   const messages = {
     en: `💡 HOW TO USE VBK
@@ -147,6 +146,7 @@ langsung dengan manusia sungguhan.
   return messages[lang] || messages.en;
 }
 
+// ✅ Quick Menu (기본 표시)
 export function getMainMenuMessage(lang = 'en') {
   const menus = {
     en: `━━━━━━━━━━━━━━━
@@ -155,7 +155,48 @@ I'm not just a bot.
 Behind me is a REAL human.
 I can actually DO things for you
 — not just give information! 🤝
-What do you need?
+
+⚡ QUICK MENU
+🗺️ 1️⃣ Our halal & tourist map
+🕌 2️⃣ Nearest prayer room / mosque
+🍽️ 3️⃣ Halal food near me
+🎫 4️⃣ Book tickets & activities
+✈️ 5️⃣ Airport & transport
+🏨 6️⃣ Muslim-friendly hotels
+0️⃣ Talk to us directly
+   (anything — we're real humans!)
+
+📋 9️⃣9️⃣ See ALL services
+━━━━━━━━━━━━━━━`,
+    id: `━━━━━━━━━━━━━━━
+🇰🇷 VirtualButler Korea
+Saya bukan sekadar bot.
+Di balik saya ada MANUSIA sungguhan.
+Saya bisa BENAR-BENAR melakukan sesuatu
+— bukan cuma kasih info! 🤝
+
+⚡ MENU CEPAT
+🗺️ 1️⃣ Peta halal & wisata kami
+🕌 2️⃣ Tempat sholat / masjid terdekat
+🍽️ 3️⃣ Makanan halal dekat sini
+🎫 4️⃣ Pesan tiket & aktivitas
+✈️ 5️⃣ Bandara & transportasi
+🏨 6️⃣ Hotel ramah Muslim
+0️⃣ Hubungi kami langsung
+   (apapun — kami manusia sungguhan!)
+
+📋 9️⃣9️⃣ Lihat SEMUA layanan
+━━━━━━━━━━━━━━━`,
+  };
+  return menus[lang] || menus.en;
+}
+
+// ✅ Full Menu (99 누르면)
+export function getFullMenuMessage(lang = 'en') {
+  const menus = {
+    en: `━━━━━━━━━━━━━━━
+🇰🇷 ALL SERVICES
+━━━━━━━━━━━━━━━
 🗺️ MAP & GUIDE
 1️⃣ Open our halal & tourist map
 🕌 PRAYER
@@ -184,16 +225,13 @@ What do you need?
 1️⃣7️⃣ Visa extension
 1️⃣8️⃣ Job in Korea
 1️⃣9️⃣ One-day guide (VBK certified)
-0️⃣ Talk to me directly
-   (anything — I'm a real human!)
+🎫 BOOKING
+2️⃣0️⃣ Book tickets & activities
+0️⃣ Talk to us directly
 ━━━━━━━━━━━━━━━`,
     id: `━━━━━━━━━━━━━━━
-🇰🇷 VirtualButler Korea
-Saya bukan sekadar bot.
-Di balik saya ada MANUSIA sungguhan.
-Saya bisa BENAR-BENAR melakukan sesuatu
-— bukan cuma kasih info! 🤝
-Kamu butuh apa?
+🇰🇷 SEMUA LAYANAN
+━━━━━━━━━━━━━━━
 🗺️ PETA & PANDUAN
 1️⃣ Buka peta halal & wisata kami
 🕌 IBADAH
@@ -222,8 +260,9 @@ Kamu butuh apa?
 1️⃣7️⃣ Perpanjangan visa
 1️⃣8️⃣ Cari kerja di Korea
 1️⃣9️⃣ One-day guide (tersertifikasi VBK)
-0️⃣ Hubungi saya langsung
-   (apapun — saya manusia sungguhan!)
+🎫 PEMESANAN
+2️⃣0️⃣ Pesan tiket & aktivitas
+0️⃣ Hubungi kami langsung
 ━━━━━━━━━━━━━━━`,
   };
   return menus[lang] || menus.en;
