@@ -6,6 +6,7 @@ import {
   getSession, setSession,
   getLocation, setLocation,
   getState, setState,
+  isFirstVisit, markVisited,
 } from './src/session.js';
 
 import {
@@ -13,6 +14,7 @@ import {
   languageSelectionMessage,
   getMainMenuMessage,
   getMapWelcomeMessage,
+  getHowToUseMessage,
 } from './src/language.js';
 
 import { isEmergency } from './src/emergency.js';
@@ -174,6 +176,16 @@ function isMenuRequest(text = '') {
   return keywords.some((k) => t === k || t.includes(k));
 }
 
+function isGreeting(text = '') {
+  const greetings = [
+    'hi', 'hello', 'halo', 'hai', 'hey',
+    'assalamualaikum', 'assalamu', 'salam',
+    '안녕', '안녕하세요',
+  ];
+  const t = text.trim().toLowerCase();
+  return greetings.some((k) => t === k || t.startsWith(k));
+}
+
 function isInsuranceKeyword(text = '') {
   const keywords = ['insurance', 'asuransi', 'insure', '보험'];
   return keywords.some((k) => text.toLowerCase().includes(k));
@@ -227,10 +239,15 @@ const BACK_TO_BOT_MESSAGE = {
   id: `✅ Kamu sekarang terhubung kembali ke bot kami!\n\nKetik "menu" untuk lihat semua pilihan.\nAtau langsung ceritakan kebutuhanmu 😊`,
 };
 
-async function sendHumanHandoff(replyToken, userId, userText, lang, reason) {
+async function sendHumanHandoff(replyToken, userId, userText, lang, reason, prefixMessage = null) {
   await notifyHumanViaLine({ userId, userMessage: userText, lang, reason });
   setState(userId, 'waiting_human');
-  await replyMessage(replyToken, HUMAN_HANDOFF_MESSAGE[lang] || HUMAN_HANDOFF_MESSAGE.en);
+  const handoffMsg = HUMAN_HANDOFF_MESSAGE[lang] || HUMAN_HANDOFF_MESSAGE.en;
+  if (prefixMessage) {
+    await replyMessage(replyToken, prefixMessage, handoffMsg);
+  } else {
+    await replyMessage(replyToken, handoffMsg);
+  }
 }
 
 async function handleSearch(replyToken, areaText, searchType, lang, originalUserText = '') {
@@ -260,13 +277,6 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
   }
 }
 
-function buildMoreEventsPrompt(lang) {
-  return {
-    en: 'Type "more" for more events.',
-    id: 'Ketik "more" untuk lihat event tambahan.',
-  }[lang] || 'Type "more" for more events.';
-}
-
 function buildNoMoreEventsMessage(lang) {
   return {
     en: 'No more events right now. Check our map for updates!',
@@ -278,7 +288,6 @@ app.get('/', (req, res) => {
   res.status(200).send('VirtualButler.Korea is running');
 });
 
-// 수동 시트 새로고침용
 app.get('/admin/refresh-sheets', async (req, res) => {
   try {
     await refreshSheetsData();
@@ -347,7 +356,8 @@ app.post('/webhook', async (req, res) => {
                 locationReceivedMessage(lang || 'en', address || 'Current location')
               );
             }
-          } catch {
+          } catch (err) {
+            console.error('[Location] searchNearby failed:', err.message);
             await replyMessage(
               event.replyToken,
               locationReceivedMessage(lang || 'en', address || 'Current location')
@@ -388,7 +398,8 @@ app.post('/webhook', async (req, res) => {
             };
             await replyMessage(event.replyToken, analysisText, followUp[lang] || followUp.en);
           }
-        } catch {
+        } catch (err) {
+          console.error('[Image] analyzeImage failed:', err.message);
           const errorMsg = {
             en: 'Could not analyze image. Please try again.',
             id: 'Gagal analisis gambar. Coba lagi ya.',
@@ -411,11 +422,25 @@ app.post('/webhook', async (req, res) => {
       if (selectedLang) {
         setSession(userId, selectedLang);
         setState(userId, null);
-        await replyMessage(
-          event.replyToken,
-          getMapWelcomeMessage(selectedLang),
-          getMainMenuMessage(selectedLang)
-        );
+
+        // ✅ 최초 방문자에게만 How to use 메시지 보여주기
+        const firstVisit = isFirstVisit(userId);
+        markVisited(userId);
+
+        if (firstVisit) {
+          await replyMessage(
+            event.replyToken,
+            getHowToUseMessage(selectedLang),
+            getMapWelcomeMessage(selectedLang),
+            getMainMenuMessage(selectedLang)
+          );
+        } else {
+          await replyMessage(
+            event.replyToken,
+            getMapWelcomeMessage(selectedLang),
+            getMainMenuMessage(selectedLang)
+          );
+        }
         continue;
       }
 
@@ -427,14 +452,25 @@ app.post('/webhook', async (req, res) => {
 
       const savedLocation = getLocation(userId);
 
+      if (isGreeting(userText)) {
+        await replyMessage(
+          event.replyToken,
+          getMapWelcomeMessage(lang),
+          getMainMenuMessage(lang)
+        );
+        continue;
+      }
+
       if (isMenuRequest(userText)) {
         await replyMessage(event.replyToken, getMainMenuMessage(lang));
         continue;
       }
 
       if (isEmergency(userText)) {
-        await replyMessage(event.replyToken, getServiceMessage('emergency', lang));
-        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'emergency');
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'emergency',
+          getServiceMessage('emergency', lang)
+        );
         continue;
       }
 
@@ -467,7 +503,7 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (lowered === '3') {
-        await replyMessage(event.replyToken, getServiceMessage('prayer_times', lang) || getServiceMessage('prayer', lang));
+        await replyMessage(event.replyToken, getServiceMessage('prayer_time', lang) || getServiceMessage('prayer', lang));
         continue;
       }
 
@@ -552,7 +588,8 @@ app.post('/webhook', async (req, res) => {
             getWeeklyCurationMessage(lang),
             results || buildNoMoreEventsMessage(lang)
           );
-        } catch {
+        } catch (err) {
+          console.error('[Events] searchEvents failed:', err.message);
           await replyMessage(
             event.replyToken,
             getWeeklyCurationMessage(lang),
@@ -563,26 +600,34 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (lowered === '16') {
-        await replyMessage(event.replyToken, getServiceMessage('delivery', lang));
-        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'delivery');
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'delivery',
+          getServiceMessage('delivery', lang)
+        );
         continue;
       }
 
       if (lowered === '17') {
-        await replyMessage(event.replyToken, getServiceMessage('visa', lang));
-        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'visa');
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'visa',
+          getServiceMessage('visa', lang)
+        );
         continue;
       }
 
       if (lowered === '18') {
-        await replyMessage(event.replyToken, getServiceMessage('jobs', lang));
-        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'jobs');
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'jobs',
+          getServiceMessage('jobs', lang)
+        );
         continue;
       }
 
       if (lowered === '19') {
-        await replyMessage(event.replyToken, getServiceMessage('guide', lang));
-        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'guide');
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'guide',
+          getServiceMessage('guide', lang)
+        );
         continue;
       }
 
@@ -612,8 +657,10 @@ app.post('/webhook', async (req, res) => {
       }
 
       if (isTransportKeyword(userText)) {
-        await replyMessage(event.replyToken, getServiceMessage('transport', lang));
-        await sendHumanHandoff(event.replyToken, userId, userText, lang, 'transport');
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'transport',
+          getServiceMessage('transport', lang)
+        );
         continue;
       }
 
@@ -669,7 +716,8 @@ app.post('/webhook', async (req, res) => {
         try {
           const results = await searchEvents(userText, lang);
           await replyMessage(event.replyToken, results || buildNoMoreEventsMessage(lang));
-        } catch {
+        } catch (err) {
+          console.error('[Events] more events failed:', err.message);
           await replyMessage(event.replyToken, buildNoMoreEventsMessage(lang));
         }
         continue;
@@ -813,7 +861,8 @@ app.post('/webhook', async (req, res) => {
             getWeeklyCurationMessage(lang),
             results || buildNoMoreEventsMessage(lang)
           );
-        } catch {
+        } catch (err) {
+          console.error('[Events] detectIntent events failed:', err.message);
           await replyMessage(event.replyToken, getWeeklyCurationMessage(lang));
         }
         continue;
@@ -841,7 +890,7 @@ app.post('/webhook', async (req, res) => {
       try {
         aiReply = await generateReply(userText, lang);
       } catch (err) {
-        console.error('AI error:', err.message);
+        console.error('[AI] generateReply failed:', err.message);
       }
 
       if (!aiReply) {
@@ -862,7 +911,7 @@ app.post('/webhook', async (req, res) => {
       await replyMessage(event.replyToken, aiReply);
     }
   } catch (error) {
-    console.error('Error:', error.message);
+    console.error('Webhook error:', error.message);
   }
 });
 
