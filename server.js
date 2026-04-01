@@ -13,6 +13,7 @@ import {
   normalizeLanguageChoice,
   languageSelectionMessage,
   getMainMenuMessage,
+  getFullMenuMessage,
   getMapWelcomeMessage,
   getHowToUseMessage,
 } from './src/language.js';
@@ -103,7 +104,6 @@ function isCategoryOnly(text = '') {
     'mosque', 'masjid', 'musholla', 'tempat sholat',
     'restoran', 'kafe', 'apotek', 'rumah sakit', 'makanan halal',
   ];
-
   const t = text.trim().toLowerCase();
   return categories.some((c) => t === c);
 }
@@ -111,10 +111,8 @@ function isCategoryOnly(text = '') {
 function looksLikeLocation(text = '') {
   const t = text.trim().toLowerCase();
   if (!t) return false;
-
   const keywords = ['station', 'stn', 'exit', 'dong', 'gu', 'ro', 'gil', '역', '동', '구', '로', '길'];
   if (keywords.some((k) => t.includes(k))) return true;
-
   return text.trim().length <= 30 && /^[a-zA-Z0-9\s\-]+$/.test(text.trim());
 }
 
@@ -129,14 +127,12 @@ function getSafeSearchType(searchType = '') {
 
 function hasExplicitCategory(text = '', routeSearchType = '') {
   if (routeSearchType && routeSearchType !== 'restaurant') return true;
-
   const categoryWords = [
     'hotel', 'cafe', 'coffee', 'pharmacy', 'hospital', 'halal',
     'movie', 'cinema', 'museum', 'convenience', 'mart', 'bank',
     'prayer', 'mosque', 'masjid', 'musholla',
     'restoran', 'kafe', 'apotek', 'makanan halal',
   ];
-
   return categoryWords.some((w) => text.toLowerCase().includes(w));
 }
 
@@ -210,6 +206,11 @@ function isKpopKeyword(text = '') {
   return keywords.some((k) => text.toLowerCase().includes(k));
 }
 
+function isTicketKeyword(text = '') {
+  const keywords = ['ticket', 'tickets', 'lotte world', 'everland', 'concert', 'tiket', 'booking', 'book'];
+  return keywords.some((k) => text.toLowerCase().includes(k));
+}
+
 function isEndHumanSession(text = '') {
   return ['#end', '#done', '#bot', '#selesai'].includes(text.trim().toLowerCase());
 }
@@ -220,8 +221,8 @@ const ASK_LOCATION = {
 };
 
 const ASK_CATEGORY = {
-  en: (area) => `📍 You're near "${area}"!\nWhat do you need?\n\n2️⃣ Nearest prayer room / mosque\n4️⃣ Halal food near me\n5️⃣ Special restaurant picks this week\n9️⃣ Shopping tips\n1️⃣5️⃣ Free events this week`,
-  id: (area) => `📍 Kamu dekat "${area}"!\nKamu butuh apa?\n\n2️⃣ Tempat sholat / masjid terdekat\n4️⃣ Makanan halal dekat saya\n5️⃣ Rekomendasi restoran spesial minggu ini\n9️⃣ Tips belanja\n1️⃣5️⃣ Event gratis minggu ini`,
+  en: (area) => `📍 You're near "${area}"!\nWhat do you need?\n\n2️⃣ Nearest prayer room / mosque\n3️⃣ Halal food near me\n4️⃣ Book tickets & activities\n6️⃣ Muslim-friendly hotels\n9️⃣9️⃣ See all services`,
+  id: (area) => `📍 Kamu dekat "${area}"!\nKamu butuh apa?\n\n2️⃣ Tempat sholat / masjid terdekat\n3️⃣ Makanan halal dekat saya\n4️⃣ Pesan tiket & aktivitas\n6️⃣ Hotel ramah Muslim\n9️⃣9️⃣ Lihat semua layanan`,
 };
 
 const MAP_GUIDE = {
@@ -269,7 +270,6 @@ async function handleSearch(replyToken, areaText, searchType, lang, originalUser
       en: `😅 No results near "${areaText}". Try another area.`,
       id: `😅 Tidak ada hasil dekat "${areaText}". Coba area lain ya.`,
     };
-
     await replyMessage(replyToken, notFound[lang] || notFound.en);
   } catch (err) {
     console.error('Search failed:', err.message);
@@ -423,7 +423,6 @@ app.post('/webhook', async (req, res) => {
         setSession(userId, selectedLang);
         setState(userId, null);
 
-        // ✅ 최초 방문자에게만 How to use 메시지 보여주기
         const firstVisit = isFirstVisit(userId);
         markVisited(userId);
 
@@ -474,6 +473,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // ✅ Quick Menu: 1번 → 지도
       if (lowered === '1') {
         await replyMessage(
           event.replyToken,
@@ -483,6 +483,7 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // ✅ Quick Menu: 2번 → 기도실 (기존 2번과 동일)
       if (lowered === '2') {
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, 'prayer', lang, userText);
@@ -502,12 +503,8 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // ✅ Quick Menu: 3번 → 할랄 음식 (기존 4번과 동일)
       if (lowered === '3') {
-        await replyMessage(event.replyToken, getServiceMessage('prayer_time', lang) || getServiceMessage('prayer', lang));
-        continue;
-      }
-
-      if (lowered === '4') {
         if (savedLocation?.address) {
           await handleSearch(event.replyToken, savedLocation.address, 'halal', lang, userText);
         } else if (savedLocation?.lat && savedLocation?.lng) {
@@ -526,16 +523,28 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
-      if (lowered === '5') {
-        await replyMessage(event.replyToken, getServiceMessage('restaurant_special', lang));
+      // ✅ Quick Menu: 4번 → 티케팅 (새로 추가)
+      if (lowered === '4') {
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'tickets',
+          getServiceMessage('tickets', lang)
+        );
         continue;
       }
 
-      if (lowered === '6') {
+      // ✅ Quick Menu: 5번 → 공항 (기존 6번과 동일)
+      if (lowered === '5') {
         await replyMessage(event.replyToken, getServiceMessage('airport', lang));
         continue;
       }
 
+      // ✅ Quick Menu: 6번 → 호텔 (기존 8번과 동일)
+      if (lowered === '6') {
+        await replyMessage(event.replyToken, getServiceMessage('hotel', lang));
+        continue;
+      }
+
+      // ✅ Full Menu 번호들 (기존 그대로)
       if (lowered === '7') {
         await replyMessage(event.replyToken, getServiceMessage('transport', lang));
         continue;
@@ -631,6 +640,21 @@ app.post('/webhook', async (req, res) => {
         continue;
       }
 
+      // ✅ 새로 추가: 20번 → 티케팅 (Full Menu)
+      if (lowered === '20') {
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'tickets',
+          getServiceMessage('tickets', lang)
+        );
+        continue;
+      }
+
+      // ✅ 새로 추가: 99 → Full Menu
+      if (lowered === '99') {
+        await replyMessage(event.replyToken, getFullMenuMessage(lang));
+        continue;
+      }
+
       if (lowered === '0') {
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
         continue;
@@ -638,6 +662,14 @@ app.post('/webhook', async (req, res) => {
 
       if (isHumanRequest(userText)) {
         await sendHumanHandoff(event.replyToken, userId, userText, lang, 'manual');
+        continue;
+      }
+
+      if (isTicketKeyword(userText)) {
+        await sendHumanHandoff(
+          event.replyToken, userId, userText, lang, 'tickets',
+          getServiceMessage('tickets', lang)
+        );
         continue;
       }
 
@@ -734,7 +766,6 @@ app.post('/webhook', async (req, res) => {
         if (loc?.lat && loc?.lng) {
           const results = await searchNearby(loc.lat, loc.lng, searchType);
           const label = (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant)[lang] || (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant).en;
-
           if (results) {
             await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
           } else {
@@ -789,7 +820,6 @@ app.post('/webhook', async (req, res) => {
         } else if (savedLocation.lat && savedLocation.lng) {
           const results = await searchNearby(savedLocation.lat, savedLocation.lng, searchType);
           const label = (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant)[lang] || (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant).en;
-
           if (results) {
             await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
           } else {
@@ -818,7 +848,6 @@ app.post('/webhook', async (req, res) => {
           if (categoryExplicit) {
             const results = await searchNearby(savedLocation.lat, savedLocation.lng, searchType);
             const label = (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant)[lang] || (TYPE_LABEL[searchType] || TYPE_LABEL.restaurant).en;
-
             if (results) {
               await replyMessage(event.replyToken, `${label} nearby:\n\n${results}`, MAP_GUIDE[lang]);
             } else {
