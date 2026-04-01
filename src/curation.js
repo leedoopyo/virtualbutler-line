@@ -118,6 +118,11 @@ export const SERVICE_CATALOG = {
     en: `🧑‍🤝‍🧑 One-Day Guide (VBK Certified)\n\nWant a personal guide for a day in Korea?\n\n✅ Our verified guides can:\n→ Speak Indonesian/English\n→ Know all halal spots\n→ Respect prayer times\n→ Customize your day\n\n🎯 Popular packages:\n→ K-Pop & Drama filming locations\n→ Muslim-friendly Seoul tour\n→ K-Beauty shopping guide\n→ Han River & nature tour\n\n💰 Starting from 100,000 KRW/day\n\nTell us:\n- Date\n- Area of interest\n- Group size\nWe'll match you with the perfect guide! 🙌`,
     id: `🧑‍🤝‍🧑 One-Day Guide (Tersertifikasi VBK)\n\nMau pemandu pribadi untuk sehari di Korea?\n\n✅ Guide terverifikasi kami bisa:\n→ Berbicara Indonesia/Inggris\n→ Tahu semua spot halal\n→ Menghormati waktu sholat\n→ Menyesuaikan hari kamu\n\n🎯 Paket populer:\n→ Lokasi K-Pop & syuting drama\n→ Tur Seoul ramah Muslim\n→ Panduan belanja K-Beauty\n→ Han River & tur alam\n\n💰 Mulai dari 100,000 KRW/hari\n\nCeritakan:\n- Tanggal\n- Minat\n- Jumlah orang\nKami cocokkan dengan guide terbaik! 🙌`,
   },
+  // ✅ 새로 추가: 티케팅
+  tickets: {
+    en: `🎫 Book Tickets & Activities\n\nTell us what you need — we'll book it for you!\n\n🎡 Theme Parks:\n→ Lotte World\n→ Everland\n→ Caribbean Bay\n\n🎤 K-Pop & Shows:\n→ Concerts\n→ Musicals\n→ Nanta Show\n→ Cookin' Nanta\n\n🏯 Cultural Experiences:\n→ Gyeongbokgung Palace tour\n→ Hanbok rental\n→ School uniform rental\n→ K-Drama filming spot tour\n\n📋 All bookings:\n→ Quote within 1 HOUR ⚡\n→ Halal food arranged if needed\n→ Transport included on request\n\nType 0️⃣ to talk to us directly!`,
+    id: `🎫 Pesan Tiket & Aktivitas\n\nCeritakan yang kamu mau — kami pesan untuk kamu!\n\n🎡 Taman Hiburan:\n→ Lotte World\n→ Everland\n→ Caribbean Bay\n\n🎤 K-Pop & Pertunjukan:\n→ Konser\n→ Musikal\n→ Nanta Show\n→ Cookin' Nanta\n\n🏯 Pengalaman Budaya:\n→ Tur Istana Gyeongbokgung\n→ Sewa hanbok\n→ Sewa seragam sekolah\n→ Tur lokasi syuting K-Drama\n\n📋 Semua pemesanan:\n→ Penawaran dalam 1 JAM ⚡\n→ Makanan halal bisa diatur\n→ Transport termasuk jika diminta\n\nKetik 0️⃣ untuk bicara langsung!`,
+  },
 };
 
 export const AD_SLOTS = {
