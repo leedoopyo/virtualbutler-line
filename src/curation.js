@@ -76,4 +76,90 @@ export const SERVICE_CATALOG = {
   },
   hotel: {
     en: `🏨 Muslim-Friendly Hotels in Seoul\n\n⭐ Our top picks:\n\n📍 Itaewon area\n→ Near Seoul Central Mosque\n→ Halal restaurants walking distance\n\n📍 Myeongdong area\n→ Central location\n→ Near KampungKu & halal spots\n\n📍 Hongdae area\n→ Great for young travelers\n→ Near halal restaurants\n\n💰 Want best price?\nCheck: Agoda / Traveloka / Booking.com\n\nTell me your dates & budget\nI'll find the best deal for you! 🙌`,
-    id: `🏨 Hotel Ramah Muslim di Seoul\n\n⭐ Pilihan terbaik kami:\n\n📍 Area Itaewon\n→ Dekat Masjid Seoul
+    id: `🏨 Hotel Ramah Muslim di Seoul\n\n⭐ Pilihan terbaik kami:\n\n📍 Area Itaewon\n→ Dekat Masjid Seoul Central\n→ Restoran halal bisa jalan kaki\n\n📍 Area Myeongdong\n→ Lokasi sentral\n→ Dekat KampungKu & spot halal\n\n📍 Area Hongdae\n→ Cocok untuk traveler muda\n→ Dekat restoran halal\n\n💰 Mau harga terbaik?\nCek: Agoda / Traveloka / Booking.com\n\nKasih tahu tanggal & budget kamu\nSaya carikan deal terbaik! 🙌`,
+  },
+  shopping: {
+    en: `🛍️ Shopping in Korea\n\n🏪 Best areas:\n→ Myeongdong: K-beauty, street food\n→ Hongdae: fashion, indie shops\n→ Dongdaemun: wholesale, open 24hrs\n→ Starfield COEX: premium mall\n\n💰 Tax Refund Tips:\n→ Spend 30,000+ KRW at one store\n→ Show passport at counter\n→ Get tax refund slip\n→ Claim at airport before departure\n\n🛍️ K-Beauty Halal Tips:\n→ Ask me before buying!\n→ Some products contain alcohol/pork ingredients\n→ I'll check for you! 🙌`,
+    id: `🛍️ Belanja di Korea\n\n🏪 Area terbaik:\n→ Myeongdong: K-beauty, street food\n→ Hongdae: fashion, toko unik\n→ Dongdaemun: grosir, buka 24 jam\n→ Starfield COEX: mall premium\n\n💰 Tips Tax Refund:\n→ Belanja 30,000+ KRW di satu toko\n→ Tunjukkan paspor di kasir\n→ Minta slip tax refund\n→ Klaim di bandara sebelum pulang\n\n🛍️ Tips K-Beauty Halal:\n→ Tanya saya sebelum beli!\n→ Beberapa produk mengandung alkohol/babi\n→ Saya bantu cek untuk kamu! 🙌`,
+  },
+  hospital: {
+    en: `🏥 Sick in Korea?\n\nDon't worry — I'll help you!\n\n🚨 Emergency: Call 119 (ambulance, free)\n👮 Police: Call 112\n\n🏥 English-friendly hospitals in Seoul:\n→ Severance Hospital (Sinchon)\n→ Samsung Medical Center (Gangnam)\n→ Asan Medical Center (Songpa)\n\n💊 Pharmacy (약국):\n→ Available everywhere\n→ Show symptoms, they'll help\n→ No prescription needed for basic medicine\n\n💰 Without insurance:\n→ General clinic: 50,000-100,000 KRW\n→ Emergency room: 200,000-500,000 KRW\n\n📋 Do you have travel insurance?\nIf not, see option 1️⃣2️⃣ first!\n\nTell me your symptoms\nI'll find the nearest clinic for you! 🙌`,
+    id: `🏥 Sakit di Korea?\n\nJangan khawatir — saya bantu!\n\n🚨 Darurat: Hubungi 119 (ambulans, gratis)\n👮 Polisi: Hubungi 112\n\n🏥 Rumah sakit ramah bahasa Inggris:\n→ Severance Hospital (Sinchon)\n→ Samsung Medical Center (Gangnam)\n→ Asan Medical Center (Songpa)\n\n💊 Apotek (약국):\n→ Ada di mana-mana\n→ Tunjukkan gejala, mereka bantu\n→ Obat dasar tanpa resep\n\n💰 Tanpa asuransi:\n→ Klinik umum: 50,000-100,000 KRW\n→ UGD: 200,000-500,000 KRW\n\n📋 Punya asuransi perjalanan?\nKalau belum, lihat pilihan 1️⃣2️⃣ dulu!\n\nCeritakan gejalamu\nSaya carikan klinik terdekat! 🙌`,
+  },
+  insurance: {
+    en: `🛡️ Travel Insurance\n\nVery important for Korea!\nWithout insurance, hospital bills can be very expensive.\n\n✅ Recommended (buy online before trip):\n\n⭐ Zurich Syariah (Halal certified!)\n→ travellin.co.id\n\n📱 Traveloka Insurance (easiest)\n→ In Traveloka app\n\n🌍 Allianz TravelPRO\n→ allianz.co.id\n\n💡 Already in Korea & no insurance?\n→ Zurich allows purchase within 3 days of departure!\n\nNeed help choosing? Just ask! 🙌`,
+    id: `🛡️ Asuransi Perjalanan\n\nSangat penting untuk ke Korea!\nTanpa asuransi, biaya rumah sakit bisa sangat mahal.\n\n✅ Rekomendasi (beli online sebelum berangkat):\n\n⭐ Zurich Syariah (Halal certified!)\n→ travellin.co.id\n\n📱 Traveloka Insurance (paling mudah)\n→ Di aplikasi Traveloka\n\n🌍 Allianz TravelPRO\n→ allianz.co.id\n\n💡 Sudah di Korea & belum punya asuransi?\n→ Zurich masih bisa dibeli dalam 3 hari setelah berangkat!\n\nMau saya bantu pilih? Bilang aja! 🙌`,
+  },
+  emergency: {
+    en: `🚨 Emergency Help\n\n📞 Emergency numbers:\n→ 119: Ambulance / Fire\n→ 112: Police\n→ 1330: Korea Tourism Helpline (English 24/7)\n\n🆘 Lost passport?\n→ Go to Indonesian Embassy\n→ 📍 Yongsan-gu, Seoul\n→ ☎️ 02-783-5675\n\n💳 Lost wallet/card?\n→ Block card immediately via app\n→ Nearest bank for emergency cash\n\n🏥 Medical emergency?\n→ Call 119 immediately\n→ They have English support\n\n👤 I'm here for you!\nType 0 to talk to me directly RIGHT NOW`,
+    id: `🚨 Bantuan Darurat\n\n📞 Nomor darurat:\n→ 119: Ambulans / Kebakaran\n→ 112: Polisi\n→ 1330: Hotline Pariwisata Korea (Inggris 24/7)\n\n🆘 Paspor hilang?\n→ Ke Kedutaan Indonesia\n→ 📍 Yongsan-gu, Seoul\n→ ☎️ 02-783-5675\n\n💳 Dompet/kartu hilang?\n→ Blokir kartu segera via aplikasi\n→ Bank terdekat untuk cash darurat\n\n🏥 Darurat medis?\n→ Hubungi 119 segera\n→ Ada dukungan bahasa Inggris\n\n👤 Saya di sini untuk kamu!\nKetik 0 untuk bicara langsung dengan saya SEKARANG`,
+  },
+  kpop: {
+    en: `🎤 K-Pop & K-Drama in Seoul\n\n📸 Must-visit spots:\n→ SM Entertainment building (giant LED screen!)\n→ HYBE (BTS company) - Yongsan\n→ Kakao Friends Hongdae\n→ Line Friends Myeongdong\n\n🎬 Drama filming locations:\n→ Gyeongbokgung (Goblin, Mr. Sunshine)\n→ Bukchon Hanok Village (many dramas)\n→ Danbam bar (Itaewon Class)\n→ N Seoul Tower (Goblin)\n\n🎵 Free performances:\n→ Hongdae busking: every Sat & Sun\n→ K-pop random dance: Hongdae plaza\n\n💿 Buy K-pop merch:\n→ COEX SM Town\n→ Music Korea (Myeongdong)\n\nWant a K-pop day tour? Type 1️⃣9️⃣! 😊`,
+    id: `🎤 K-Pop & K-Drama di Seoul\n\n📸 Wajib dikunjungi:\n→ Gedung SM Entertainment (layar LED raksasa!)\n→ HYBE (perusahaan BTS) - Yongsan\n→ Kakao Friends Hongdae\n→ Line Friends Myeongdong\n\n🎬 Lokasi syuting drama:\n→ Gyeongbokgung (Goblin, Mr. Sunshine)\n→ Bukchon Hanok Village (banyak drakor)\n→ Bar Danbam (Itaewon Class)\n→ N Seoul Tower (Goblin)\n\n🎵 Pertunjukan gratis:\n→ Busking Hongdae: setiap Sabtu & Minggu\n→ K-pop random dance: plaza Hongdae\n\n💿 Beli merchandise K-pop:\n→ COEX SM Town\n→ Music Korea (Myeongdong)\n\nMau tur K-pop seharian? Ketik 1️⃣9️⃣! 😊`,
+  },
+  events: {
+    en: `🎉 Events & Free Things This Week`,
+    id: `🎉 Event & Hal Gratis Minggu Ini`,
+  },
+  delivery: {
+    en: `📦 Send Package / Cargo\n\nNeed to send items back to Indonesia?\n\n📮 Options:\n→ EMS (Korea Post): reliable, tracked\n→ DHL/FedEx: faster, more expensive\n→ Sea cargo: cheapest, 2-4 weeks\n\n📦 Overweight luggage?\n→ Ship excess items home!\n→ Usually cheaper than airline fees\n\n🛒 Need boxes?\n→ Any convenience store or Daiso\n\nTell me:\n- What items?\n- How heavy?\n- Destination city?\nI'll help you find the best option! 🙌`,
+    id: `📦 Kirim Barang / Kargo\n\nMau kirim barang ke Indonesia?\n\n📮 Pilihan:\n→ EMS (Korea Post): terpercaya, ada tracking\n→ DHL/FedEx: lebih cepat, lebih mahal\n→ Kargo laut: paling murah, 2-4 minggu\n\n📦 Bagasi overweight?\n→ Kirim barang berlebih ke rumah!\n→ Biasanya lebih murah dari biaya maskapai\n\n🛒 Butuh kardus?\n→ Di minimarket atau Daiso mana saja\n\nCeritakan:\n- Barang apa?\n- Berapa berat?\n- Kota tujuan?\nSaya bantu carikan opsi terbaik! 🙌`,
+  },
+  visa: {
+    en: `🛂 Visa Extension\n\nNeed to extend your stay in Korea?\n\n📋 Requirements:\n→ Valid passport\n→ Current visa\n→ Proof of accommodation\n→ Financial proof\n→ Application fee\n\n🏢 Immigration offices in Seoul:\n→ Seoul Immigration Office (Mapo)\n→ Incheon Airport Immigration\n\n⚠️ Process takes 1-2 weeks\n\nOur team can guide you through the process!\nType 0 to talk to us directly 🙌`,
+    id: `🛂 Perpanjangan Visa\n\nMau perpanjang tinggal di Korea?\n\n📋 Persyaratan:\n→ Paspor yang masih berlaku\n→ Visa saat ini\n→ Bukti akomodasi\n→ Bukti keuangan\n→ Biaya aplikasi\n\n🏢 Kantor imigrasi di Seoul:\n→ Seoul Immigration Office (Mapo)\n→ Imigrasi Bandara Incheon\n\n⚠️ Proses memakan waktu 1-2 minggu\n\nTim kami bisa panduan prosesnya!\nKetik 0 untuk bicara langsung 🙌`,
+  },
+  jobs: {
+    en: `💼 Job in Korea\n\nLooking for work in Korea?\n\n✅ Common jobs for Indonesians:\n→ Restaurant (halal/Asian food)\n→ Language instructor\n→ Tourism guide\n→ Factory work (visa required)\n\n📋 Requirements:\n→ Valid visa that allows work\n→ Korean language helps a lot\n→ ARC (Alien Registration Card)\n\n⚠️ Working without proper visa = illegal!\n\nOur team can connect you with opportunities!\nType 0 to talk to us directly 🙌`,
+    id: `💼 Kerja di Korea\n\nCari kerja di Korea?\n\n✅ Pekerjaan umum untuk orang Indonesia:\n→ Restoran (halal/makanan Asia)\n→ Instruktur bahasa\n→ Pemandu wisata\n→ Kerja pabrik (butuh visa khusus)\n\n📋 Persyaratan:\n→ Visa yang mengizinkan bekerja\n→ Bahasa Korea sangat membantu\n→ ARC (Kartu Registrasi Orang Asing)\n\n⚠️ Kerja tanpa visa yang tepat = ilegal!\n\nTim kami bisa hubungkan dengan peluang kerja!\nKetik 0 untuk bicara langsung 🙌`,
+  },
+  guide: {
+    en: `🧑‍🤝‍🧑 One-Day Guide (VBK Certified)\n\nWant a personal guide for a day in Korea?\n\n✅ Our verified guides can:\n→ Speak Indonesian/English\n→ Know all halal spots\n→ Respect prayer times\n→ Customize your day\n\n🎯 Popular packages:\n→ K-Pop & Drama filming locations\n→ Muslim-friendly Seoul tour\n→ K-Beauty shopping guide\n→ Han River & nature tour\n\n💰 Starting from 100,000 KRW/day\n\nTell us:\n- Date\n- Area of interest\n- Group size\nWe'll match you with the perfect guide! 🙌`,
+    id: `🧑‍🤝‍🧑 One-Day Guide (Tersertifikasi VBK)\n\nMau pemandu pribadi untuk sehari di Korea?\n\n✅ Guide terverifikasi kami bisa:\n→ Berbicara Indonesia/Inggris\n→ Tahu semua spot halal\n→ Menghormati waktu sholat\n→ Menyesuaikan hari kamu\n\n🎯 Paket populer:\n→ Lokasi K-Pop & syuting drama\n→ Tur Seoul ramah Muslim\n→ Panduan belanja K-Beauty\n→ Han River & tur alam\n\n💰 Mulai dari 100,000 KRW/hari\n\nCeritakan:\n- Tanggal\n- Minat\n- Jumlah orang\nKami cocokkan dengan guide terbaik! 🙌`,
+  },
+};
+
+export const AD_SLOTS = {
+  main: {
+    en: `💡 Tip: Tap "1" anytime to open our Muslim-friendly map of Seoul & Gyeonggi!`,
+    id: `💡 Tips: Ketik "1" kapan saja untuk buka peta Muslim-friendly Seoul & Gyeonggi kami!`,
+  },
+  shopping: {
+    en: `🗺️ See all shopping spots on our map → ${MAP_LINK}`,
+    id: `🗺️ Lihat semua spot belanja di peta kami → ${MAP_LINK}`,
+  },
+  events: {
+    en: `📍 Check our map for event locations → ${MAP_LINK}`,
+    id: `📍 Cek peta kami untuk lokasi event → ${MAP_LINK}`,
+  },
+};
+
+export function getWeeklyCurationMessage(lang = 'en') {
+  const header = {
+    en: `✨ This week's curated picks (${WEEKLY_CURATION.week})`,
+    id: `✨ Pilihan curated minggu ini (${WEEKLY_CURATION.week})`,
+  };
+
+  const items = WEEKLY_CURATION.items
+    .map((item) => {
+      const title = item.title[lang] || item.title.en;
+      const detail = item.detail[lang] || item.detail.en;
+      return `${item.emoji} ${title}\n${detail}\n🗺️ ${item.mapLink}`;
+    })
+    .join('\n\n');
+
+  return [header[lang] || header.en, '', items].join('\n');
+}
+
+export function getServiceMessage(serviceKey, lang = 'en') {
+  const item = SERVICE_CATALOG[serviceKey];
+  if (!item) return '';
+  return item[lang] || item.en;
+}
+
+export function getAdMessage(lang = 'en', slot = 'main') {
+  const item = AD_SLOTS[slot];
+  if (!item) return '';
+  return item[lang] || item.en;
+}
