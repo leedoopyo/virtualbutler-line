@@ -85,11 +85,14 @@ export const TYPE_LABEL = {
   prayer: { en: '🕌 Prayer places', id: '🕌 Tempat sholat' },
 };
 
-function kakaoMapLink(placeName, x, y) {
+// ✅ 수정: 구글맵 링크로 변경
+function googleMapLink(placeName, x, y) {
   if (x && y) {
-    return `https://map.kakao.com/link/map/${encodeURIComponent(placeName)},${y},${x}`;
+    // 좌표가 있으면 좌표로 정확하게
+    return `https://www.google.com/maps/search/?api=1&query=${y},${x}`;
   }
-  return `https://map.kakao.com/link/search/${encodeURIComponent(placeName)}`;
+  // 이름으로 검색
+  return `https://www.google.com/maps/search/${encodeURIComponent(placeName)}`;
 }
 
 function formatPlaces(places) {
@@ -99,7 +102,7 @@ function formatPlaces(places) {
         `${i + 1}. ${p.place_name}\n` +
         `   📍 ${p.road_address_name || p.address_name}\n` +
         `   📞 ${p.phone || 'No phone'}\n` +
-        `   🗺️ ${kakaoMapLink(p.place_name, p.x, p.y)}`
+        `   🗺️ ${googleMapLink(p.place_name, p.x, p.y)}`
     )
     .join('\n\n');
 }
@@ -175,7 +178,6 @@ async function geocodeLocation(locationName) {
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
   if (!KAKAO_API_KEY) return null;
 
-  // ✅ 수정: findAreaKeyword로 한국어 지역명 변환 후 검색
   const koreanArea = findAreaKeyword(locationName);
   const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(koreanArea)}&size=1`;
 
@@ -255,7 +257,6 @@ export async function searchByKeyword(areaKeyword, type = 'restaurant', language
 
   if (!KAKAO_API_KEY) return null;
 
-  // ✅ 수정: 한국어 지역명으로 변환 후 지오코딩
   const koreanArea = findAreaKeyword(areaKeyword);
   const geo = await geocodeLocation(koreanArea);
 
@@ -264,7 +265,7 @@ export async function searchByKeyword(areaKeyword, type = 'restaurant', language
     if (results) return results;
   }
 
-  // ✅ 수정: 한국어 쿼리 사용 + 지역명 분리
+  // ✅ 수정: 한국어 쿼리 사용
   const queryWord = KAKAO_QUERY_MAP[type] || '음식점';
   const searchQuery = `${koreanArea} ${queryWord}`;
   const categoryCode = CATEGORY_MAP[type] || 'FD6';
