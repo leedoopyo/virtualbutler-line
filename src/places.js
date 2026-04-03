@@ -24,24 +24,25 @@ export const CATEGORY_MAP = {
   prayer: 'FD6',
 };
 
-export const QUERY_MAP = {
-  restaurant: 'restaurant',
-  cafe: 'cafe',
-  convenience: 'convenience store',
-  culture: 'cultural facility',
-  hotel: 'hotel',
-  attraction: 'attraction',
-  subway: 'subway station',
-  bank: 'bank',
-  mart: 'supermarket',
-  hospital: 'hospital',
-  pharmacy: 'pharmacy',
-  public: 'public office',
-  school: 'school',
-  gas: 'gas station',
-  parking: 'parking',
-  halal: 'halal food',
-  prayer: 'prayer room',
+// ✅ 수정: 한국어 쿼리로 교체
+const KAKAO_QUERY_MAP = {
+  restaurant: '음식점',
+  cafe: '카페',
+  convenience: '편의점',
+  culture: '문화시설',
+  hotel: '호텔',
+  attraction: '관광지',
+  subway: '지하철역',
+  bank: '은행',
+  mart: '마트',
+  hospital: '병원',
+  pharmacy: '약국',
+  public: '공공기관',
+  school: '학교',
+  gas: '주유소',
+  parking: '주차장',
+  halal: '음식점',
+  prayer: '기도실',
 };
 
 export const TYPE_EMOJI = {
@@ -106,20 +107,26 @@ function formatPlaces(places) {
 function findAreaKeyword(areaKeyword = '') {
   const t = String(areaKeyword).toLowerCase();
 
-  if (t.includes('itaewon')) return 'itaewon';
-  if (t.includes('myeongdong')) return 'myeongdong';
-  if (t.includes('hongdae')) return 'hongdae';
-  if (t.includes('gangnam')) return 'gangnam';
-  if (t.includes('jongno')) return 'jongno';
-  if (t.includes('gwanghwamun')) return 'gwanghwamun';
-  if (t.includes('dongdaemun')) return 'dongdaemun';
-  if (t.includes('sinchon')) return 'sinchon';
-  if (t.includes('jamsil')) return 'jamsil';
-  if (t.includes('ansan')) return 'ansan';
-  if (t.includes('suwon')) return 'suwon';
-  if (t.includes('incheon')) return 'incheon';
-  if (t.includes('gwanak')) return 'gwanak';
-  if (t.includes('bucheon')) return 'bucheon';
+  if (t.includes('itaewon') || t.includes('이태원')) return '이태원';
+  if (t.includes('myeongdong') || t.includes('명동')) return '명동';
+  if (t.includes('hongdae') || t.includes('홍대')) return '홍대';
+  if (t.includes('gangnam') || t.includes('강남')) return '강남';
+  if (t.includes('jongno') || t.includes('종로')) return '종로';
+  if (t.includes('gwanghwamun') || t.includes('광화문')) return '광화문';
+  if (t.includes('dongdaemun') || t.includes('동대문')) return '동대문';
+  if (t.includes('sinchon') || t.includes('신촌')) return '신촌';
+  if (t.includes('jamsil') || t.includes('잠실')) return '잠실';
+  if (t.includes('ansan') || t.includes('안산')) return '안산';
+  if (t.includes('suwon') || t.includes('수원')) return '수원';
+  if (t.includes('incheon') || t.includes('인천')) return '인천';
+  if (t.includes('gwanak') || t.includes('관악')) return '관악';
+  if (t.includes('bucheon') || t.includes('부천')) return '부천';
+  if (t.includes('busan') || t.includes('부산')) return '부산';
+  if (t.includes('jeju') || t.includes('제주')) return '제주';
+  if (t.includes('insadong') || t.includes('인사동')) return '인사동';
+  if (t.includes('bukchon') || t.includes('북촌')) return '북촌';
+  if (t.includes('mapo') || t.includes('마포')) return '마포';
+  if (t.includes('yongsan') || t.includes('용산')) return '용산';
 
   return t.trim();
 }
@@ -168,7 +175,9 @@ async function geocodeLocation(locationName) {
   const KAKAO_API_KEY = process.env.KAKAO_API_KEY;
   if (!KAKAO_API_KEY) return null;
 
-  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(locationName)}&size=1`;
+  // ✅ 수정: findAreaKeyword로 한국어 지역명 변환 후 검색
+  const koreanArea = findAreaKeyword(locationName);
+  const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(koreanArea)}&size=1`;
 
   try {
     const response = await fetch(url, {
@@ -246,16 +255,21 @@ export async function searchByKeyword(areaKeyword, type = 'restaurant', language
 
   if (!KAKAO_API_KEY) return null;
 
-  const geo = await geocodeLocation(areaKeyword);
+  // ✅ 수정: 한국어 지역명으로 변환 후 지오코딩
+  const koreanArea = findAreaKeyword(areaKeyword);
+  const geo = await geocodeLocation(koreanArea);
 
   if (geo) {
     const results = await searchNearby(geo.lat, geo.lng, type);
     if (results) return results;
   }
 
-  const queryWord = QUERY_MAP[type] || 'restaurant';
-  const searchQuery = `${areaKeyword} ${queryWord}`;
+  // ✅ 수정: 한국어 쿼리 사용 + 지역명 분리
+  const queryWord = KAKAO_QUERY_MAP[type] || '음식점';
+  const searchQuery = `${koreanArea} ${queryWord}`;
   const categoryCode = CATEGORY_MAP[type] || 'FD6';
+
+  console.log(`[Kakao] Searching: "${searchQuery}"`);
 
   try {
     const url = `https://dapi.kakao.com/v2/local/search/keyword.json?query=${encodeURIComponent(searchQuery)}&category_group_code=${categoryCode}&size=3`;
