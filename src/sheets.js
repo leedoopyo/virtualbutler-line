@@ -82,19 +82,11 @@ function mapRowToObject(headers = [], row = []) {
   return obj;
 }
 
-// ✅ 새로 추가: 카카오맵 링크 생성
+// ✅ 수정: 이름으로만 카카오맵 검색
 function buildKakaoMapLink(place) {
-  // 이미 카카오맵 링크면 그대로 사용
   if (place.mapLink && place.mapLink.includes('kakao.com')) {
     return place.mapLink;
   }
-
-  // 주소가 있으면 주소로 검색
-  if (place.address) {
-    return `https://map.kakao.com/link/search/${encodeURIComponent(place.address)}`;
-  }
-
-  // 이름으로 검색
   return `https://map.kakao.com/link/search/${encodeURIComponent(place.name)}`;
 }
 
@@ -241,7 +233,7 @@ export function formatSheetPlaces(places = [], options = {}) {
         }
       }
 
-      // ✅ 수정: 카카오맵 링크 자동 생성
+      // ✅ 수정: 이름으로만 카카오맵 링크 생성
       const mapUrl = buildKakaoMapLink(p);
       lines.push(`   🗺️ ${mapUrl}`);
 
