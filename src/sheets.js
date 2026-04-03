@@ -82,24 +82,18 @@ function mapRowToObject(headers = [], row = []) {
   return obj;
 }
 
-// ✅ 수정: 구글맵 링크로 자동 변환
+// ✅ 수정: 카카오맵 포함 전부 구글맵으로 변환
 function buildMapLink(place) {
-  // 이미 구글맵 링크면 그대로
+  // 구글맵 링크면 그대로
   if (place.mapLink && place.mapLink.includes('google.com/maps')) {
     return place.mapLink;
   }
 
-  // 이미 카카오맵 링크면 그대로
-  if (place.mapLink && place.mapLink.includes('kakao.com')) {
-    return place.mapLink;
-  }
-
-  // 주소 + 이름으로 구글맵 검색
+  // 카카오맵 포함 나머지 전부 구글맵으로 변환
   if (place.address) {
     return `https://www.google.com/maps/search/${encodeURIComponent(place.name + ', ' + place.address)}`;
   }
 
-  // 이름으로만 구글맵 검색
   return `https://www.google.com/maps/search/${encodeURIComponent(place.name)}`;
 }
 
