@@ -1,7 +1,11 @@
 import { google } from 'googleapis';
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID;
-const SHEET_NAME = process.env.GOOGLE_SHEET_NAME || 'places';
+
+// ✅ 수정: 여러 탭 지원
+const SHEET_TABS = process.env.GOOGLE_SHEET_TABS
+  ? process.env.GOOGLE_SHEET_TABS.split(',').map((t) => t.trim())
+  : (process.env.GOOGLE_SHEET_NAME ? [process.env.GOOGLE_SHEET_NAME] : ['food_places']);
 
 function getGoogleCredentials() {
   const raw = process.env.GOOGLE_SERVICE_ACCOUNT_JSON;
@@ -82,7 +86,7 @@ function mapRowToObject(headers = [], row = []) {
   return obj;
 }
 
-// ✅ 수정: 카카오맵 포함 전부 구글맵으로 변환
+// ✅ 구글맵 링크 자동 변환
 function buildMapLink(place) {
   // 구글맵 링크면 그대로
   if (place.mapLink && place.mapLink.includes('google.com/maps')) {
@@ -97,6 +101,38 @@ function buildMapLink(place) {
   return `https://www.google.com/maps/search/${encodeURIComponent(place.name)}`;
 }
 
+// ✅ 새로 추가: 탭 하나 읽기
+async function loadSheetTab(sheets, tabName) {
+  try {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: SHEET_ID,
+      range: `${tabName}!A:Z`,
+    });
+
+    const rows = res.data.values || [];
+
+    if (rows.length < 2) {
+      console.log(`[Sheets] No rows in tab: ${tabName}`);
+      return [];
+    }
+
+    const headers = rows[0];
+
+    const places = rows
+      .slice(1)
+      .map((row) => mapRowToObject(headers, row))
+      .map((obj) => normalizePlace(obj))
+      .filter((p) => p.name && p.isActive);
+
+    console.log(`[Sheets] Loaded ${places.length} places from tab: ${tabName}`);
+    return places;
+
+  } catch (err) {
+    console.error(`[Sheets] Failed to load tab "${tabName}":`, err.message);
+    return [];
+  }
+}
+
 export async function loadSheetsData() {
   if (!SHEET_ID) {
     console.warn('[Sheets] GOOGLE_SHEET_ID is missing');
@@ -107,32 +143,20 @@ export async function loadSheetsData() {
   const client = await auth.getClient();
   const sheets = google.sheets({ version: 'v4', auth: client });
 
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: SHEET_ID,
-    range: `${SHEET_NAME}!A:Z`,
-  });
+  // ✅ 모든 탭 병렬로 읽기
+  const allResults = await Promise.all(
+    SHEET_TABS.map((tab) => loadSheetTab(sheets, tab))
+  );
 
-  const rows = res.data.values || [];
-
-  if (rows.length < 2) {
-    cache = [];
-    console.log('[Sheets] No rows found');
-    return cache;
-  }
-
-  const headers = rows[0];
-
-  cache = rows
-    .slice(1)
-    .map((row) => mapRowToObject(headers, row))
-    .map((obj) => normalizePlace(obj))
-    .filter((p) => p.name && p.isActive)
+  // ✅ 모든 탭 결과 합치기
+  cache = allResults
+    .flat()
     .sort((a, b) => {
       if (a.priority !== b.priority) return a.priority - b.priority;
       return b.rating - a.rating;
     });
 
-  console.log(`[Sheets] Loaded ${cache.length} places`);
+  console.log(`[Sheets] Total loaded: ${cache.length} places from ${SHEET_TABS.length} tabs`);
   return cache;
 }
 
@@ -240,7 +264,7 @@ export function formatSheetPlaces(places = [], options = {}) {
         }
       }
 
-      // ✅ 수정: 구글맵 링크로 자동 변환
+      // ✅ 구글맵 링크로 자동 변환
       const mapUrl = buildMapLink(p);
       lines.push(`   🗺️ ${mapUrl}`);
 
