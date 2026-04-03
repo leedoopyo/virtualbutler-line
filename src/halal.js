@@ -275,7 +275,6 @@ export const VBK_PLACES = [
 export function searchVBKPlaces(userText = '', category = 'halal') {
   const t = userText.toLowerCase();
 
-  // area keywords from user text
   const areaMatches = VBK_PLACES.filter((place) => {
     const areaMatch = place.area.some((a) => t.includes(a.toLowerCase()));
     const categoryMatch = place.category.some((c) => c.includes(category) || category.includes(c));
@@ -284,7 +283,6 @@ export function searchVBKPlaces(userText = '', category = 'halal') {
 
   if (areaMatches.length > 0) return formatVBKResults(areaMatches.slice(0, 5));
 
-  // category only - return top rated
   if (category === 'prayer' || category === 'masjid') {
     const prayerPlaces = VBK_PLACES.filter((p) =>
       p.category.some((c) => ['masjid', 'mosque', 'prayer', 'musholla', 'sholat'].includes(c))
@@ -301,12 +299,19 @@ export function searchVBKPlaces(userText = '', category = 'halal') {
   return null;
 }
 
+// ✅ 수정: 구글맵 링크로 자동 변환
 function formatVBKResults(places) {
-  return places.map((p, i) => [
-    `${i + 1}. ${p.name}`,
-    `📍 ${p.address}`,
-    `⭐ ${p.rating}`,
-    `ℹ️ ${p.info}`,
-    `🗺️ ${p.mapLink}`,
-  ].join('\n')).join('\n\n');
+  return places.map((p, i) => {
+    const mapUrl = p.mapLink && p.mapLink.includes('google.com/maps')
+      ? p.mapLink
+      : `https://www.google.com/maps/search/${encodeURIComponent(p.name + ', ' + p.address)}`;
+
+    return [
+      `${i + 1}. ${p.name}`,
+      `📍 ${p.address}`,
+      `⭐ ${p.rating}`,
+      `ℹ️ ${p.info}`,
+      `🗺️ ${mapUrl}`,
+    ].join('\n');
+  }).join('\n\n');
 }
