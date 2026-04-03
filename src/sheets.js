@@ -82,12 +82,25 @@ function mapRowToObject(headers = [], row = []) {
   return obj;
 }
 
-// ✅ 수정: 이름으로만 카카오맵 검색
-function buildKakaoMapLink(place) {
+// ✅ 수정: 구글맵 링크로 자동 변환
+function buildMapLink(place) {
+  // 이미 구글맵 링크면 그대로
+  if (place.mapLink && place.mapLink.includes('google.com/maps')) {
+    return place.mapLink;
+  }
+
+  // 이미 카카오맵 링크면 그대로
   if (place.mapLink && place.mapLink.includes('kakao.com')) {
     return place.mapLink;
   }
-  return `https://map.kakao.com/link/search/${encodeURIComponent(place.name)}`;
+
+  // 주소 + 이름으로 구글맵 검색
+  if (place.address) {
+    return `https://www.google.com/maps/search/${encodeURIComponent(place.name + ', ' + place.address)}`;
+  }
+
+  // 이름으로만 구글맵 검색
+  return `https://www.google.com/maps/search/${encodeURIComponent(place.name)}`;
 }
 
 export async function loadSheetsData() {
@@ -233,8 +246,8 @@ export function formatSheetPlaces(places = [], options = {}) {
         }
       }
 
-      // ✅ 수정: 이름으로만 카카오맵 링크 생성
-      const mapUrl = buildKakaoMapLink(p);
+      // ✅ 수정: 구글맵 링크로 자동 변환
+      const mapUrl = buildMapLink(p);
       lines.push(`   🗺️ ${mapUrl}`);
 
       return lines.join('\n');
