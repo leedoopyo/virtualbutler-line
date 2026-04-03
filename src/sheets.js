@@ -82,6 +82,22 @@ function mapRowToObject(headers = [], row = []) {
   return obj;
 }
 
+// ✅ 새로 추가: 카카오맵 링크 생성
+function buildKakaoMapLink(place) {
+  // 이미 카카오맵 링크면 그대로 사용
+  if (place.mapLink && place.mapLink.includes('kakao.com')) {
+    return place.mapLink;
+  }
+
+  // 주소가 있으면 주소로 검색
+  if (place.address) {
+    return `https://map.kakao.com/link/search/${encodeURIComponent(place.address)}`;
+  }
+
+  // 이름으로 검색
+  return `https://map.kakao.com/link/search/${encodeURIComponent(place.name)}`;
+}
+
 export async function loadSheetsData() {
   if (!SHEET_ID) {
     console.warn('[Sheets] GOOGLE_SHEET_ID is missing');
@@ -205,8 +221,14 @@ export function formatSheetPlaces(places = [], options = {}) {
       const lines = [
         `${i + 1}. ${p.name}`,
         `   📍 ${p.address || 'No address'}`,
-        `   ℹ️ ${p.info || 'No description'}`,
       ];
+
+      // ✅ 평점 있으면 표시
+      if (p.rating && p.rating > 0) {
+        lines.push(`   ⭐ ${p.rating}`);
+      }
+
+      lines.push(`   ℹ️ ${p.info || 'No description'}`);
 
       if (showMeta) {
         const meta = [
@@ -219,7 +241,10 @@ export function formatSheetPlaces(places = [], options = {}) {
         }
       }
 
-      lines.push(`   🗺️ ${p.mapLink || 'No map link'}`);
+      // ✅ 수정: 카카오맵 링크 자동 생성
+      const mapUrl = buildKakaoMapLink(p);
+      lines.push(`   🗺️ ${mapUrl}`);
+
       return lines.join('\n');
     })
     .join('\n\n');
